@@ -6,7 +6,7 @@ use Theintz\PhpDaemon\Worker\FunctionMediator;
 use Theintz\PhpDaemon\Worker\ObjectMediator;
 use Theintz\PhpDaemon\Worker\Via\SysV;
 
-declare(ticks = 5);
+declare(ticks = 100);
 
 /**
  * Daemon Base Class - Extend this to build daemons.
@@ -891,13 +891,16 @@ abstract class Daemon
             pcntl_sigprocmask(SIG_UNBLOCK, array(SIGCHLD));
         } else {
             // There is no time to sleep between intervals -- but we still need to give the CPU a break
-            // Sleep for 1/100 a second.
-            usleep(10000);
+            // Sleep for 1/10000 a second.
+            usleep(100);
             if ($this->loop_interval > 0)
                 $this->error('Run Loop Taking Too Long. Duration: ' . number_format($stats['duration'], 3) . ' Interval: ' . $this->loop_interval);
         }
 
-        $this->stats[] = $stats;
+        // we only want to sample 0.1% from the stats, this avoids a giant memory leak
+        if (rand(1, 1000) == 1) {
+            $this->stats[] = $stats;
+        }
         return $stats;
     }
 
