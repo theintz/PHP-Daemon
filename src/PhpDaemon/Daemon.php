@@ -287,8 +287,8 @@ abstract class Daemon
         if (function_exists('pcntl_fork') == false)
             $errors[] = "The PCNTL Extension is not installed";
 
-        if (version_compare(PHP_VERSION, '5.3.0') < 0)
-            $errors[] = "PHP 5.3 or higher is required";
+        if (version_compare(PHP_VERSION, '5.5.0') < 0)
+            $errors[] = "PHP 5.5 or higher is required";
 
         foreach ($this->plugins as $plugin)
             foreach ($this->{$plugin}->check_environment() as $error)
