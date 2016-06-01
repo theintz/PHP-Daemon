@@ -35,14 +35,6 @@ abstract class Core_Daemon
     const ON_SHUTDOWN       = 10;   // called at the top of the destructor
 
     /**
-     * An array of instructions that's displayed when the -i param is passed to the application.
-     * Helps sysadmins and users of your daemons get installation correct. Guide them to set
-     * correct permissions, supervisor/monit setup, crontab entries, init.d scripts, etc
-     * @var Array
-     */
-    protected $install_instructions = array();
-
-    /**
      * The frequency of the event loop. In seconds.
      *
      * In timer-based applications your execute() method will be called every $loop_interval seconds. Any remaining time
@@ -148,24 +140,6 @@ abstract class Core_Daemon
     private $verbose = false;
 
     /**
-     * Array of worker aliases
-     * @var Array
-     */
-    private $workers = array();
-
-    /**
-     * Map of PID's to Worker aliases
-     * @var array
-     */
-    private $worker_pids = array();
-
-    /**
-     * Array of plugin aliases
-     * @var Array
-     */
-    private $plugins = array();
-
-    /**
      * Map of callbacks that have been registered using on()
      * @var Array
      */
@@ -178,51 +152,12 @@ abstract class Core_Daemon
     private $stats = array();
 
     /**
-     * Set this in your daemon to run a debug console to interact with your worker processes.
-     * @example Pass CLI argument: --debugworkers
-     * @var bool
-     */
-    private $debug_workers = false;
-
-    /**
-     * By default, any buffered calls and acks between a daemon and its worker processes do not persist after a restart.
-     * You can retain these calls -- and attempt to pick-up where you left off -- by using the the --recoverworkers
-     * option.
-     * Note: When a daemon auto-restarts itself it will use this function to retain worker operation.
-     * @example Pass CLI argument: --recoverworkers
-     * @var bool
-     */
-    private $recover_workers = false;
-
-
-    /**
      * This has to be set using the Core_Daemon::setFilename() method before you call getInstance() the first time.
      * It's used as part of the auto-restart mechanism.
      * @todo Is there a way to get the currently executed filename from within an include?
      * @var string
      */
     private static $filename = false;
-
-
-
-
-    /**
-     * Implement this method to define plugins
-     * @return void
-     */
-    protected function setup_plugins()
-    {
-
-    }
-
-    /**
-     * Implement this method to define workers
-     * @return void
-     */
-    protected function setup_workers()
-    {
-
-    }
 
     /**
      * The setup method will contain the one-time setup needs of the daemon.
@@ -259,8 +194,6 @@ abstract class Core_Daemon
     abstract protected function log_file();
 
 
-
-
     /**
      * Return an instance of the Core_Daemon singleton
      * @return Core_Daemon
@@ -273,8 +206,6 @@ abstract class Core_Daemon
         try
         {
             $o = new static;
-            $o->setup_plugins();
-            $o->setup_workers();
             $o->check_environment();
             $o->init();
         }
@@ -296,13 +227,8 @@ abstract class Core_Daemon
         self::$filename = realpath($filename);
     }
 
-
-
     protected function __construct()
     {
-        // We have to set any installation instructions before we call getopt()
-        $this->install_instructions[] = "Add to Supervisor or Monit, or add a Crontab Entry:\n   * * * * * " . $this->getFilename();
-
         $this->start_time = time();
         $this->pid(getmypid());
         $this->getopt();
@@ -336,14 +262,6 @@ abstract class Core_Daemon
         if (version_compare(PHP_VERSION, '5.3.0') < 0)
             $errors[] = "PHP 5.3 or higher is required";
 
-        foreach ($this->plugins as $plugin)
-            foreach ($this->{$plugin}->check_environment() as $error)
-                $errors[] = "[$plugin] $error";
-
-        foreach ($this->workers as $worker)
-            foreach ($this->{$worker}->check_environment() as $error)
-                $errors[] = "[$worker] $error";
-
         if (count($errors)) {
             $errors = implode("\n  ", $errors);
             throw new Exception("Checking Dependencies... Failed:\n  $errors");
@@ -357,12 +275,6 @@ abstract class Core_Daemon
     private function init()
     {
         $this->register_signal_handlers();
-
-        foreach ($this->plugins as $plugin)
-            $this->{$plugin}->setup();
-
-        foreach ($this->workers as $worker)
-            $this->{$worker}->setup();
 
         $this->loop_interval($this->loop_interval);
 
@@ -390,16 +302,6 @@ abstract class Core_Daemon
         try
         {
             $this->dispatch(array(self::ON_SHUTDOWN));
-            foreach($this->plugins as $plugin)
-                $this->{$plugin}->teardown();
-
-            while($this->is_parent && count($this->worker_pids) > 0) {
-                foreach(array_unique($this->worker_pids) as $worker)
-                    $this->{$worker}->teardown();
-
-                $this->reap(false);
-                usleep(50000);
-            }
         }
         catch (Exception $e)
         {
@@ -407,7 +309,6 @@ abstract class Core_Daemon
                 $e->getMessage(), $e->getFile(), $e->getLine(), PHP_EOL, $e->getTraceAsString()));
         }
 
-        $this->reap(false);
         if ($this->is_parent && !empty($this->pid_file) && file_exists($this->pid_file) && file_get_contents($this->pid_file) == $this->pid)
             unlink($this->pid_file);
 
@@ -435,10 +336,6 @@ abstract class Core_Daemon
             return call_user_func_array(array($this, $method), array());
         }
 
-        if (in_array($method, $this->workers)) {
-            return call_user_func_array($this->$method, $args);
-        }
-
         throw new Exception("Invalid Method Call '$method'");
     }
 
@@ -454,7 +351,6 @@ abstract class Core_Daemon
             {
                 $this->timer(true);
                 $this->auto_restart();
-                $this->reap();
                 $this->dispatch(array(self::ON_PREEXECUTE));
                 $this->execute();
                 $this->dispatch(array(self::ON_POSTEXECUTE));
@@ -540,104 +436,6 @@ abstract class Core_Daemon
                     call_user_func_array($callback['callback'], $args);
                 }
             }
-    }
-
-    /**
-     * Run any task asynchronously by passing it to this method. Will fork into a child process, execute the supplied
-     * code, and exit.
-     *
-     * The $callable provided can be a standard PHP Callback, a Closure, or any object that implements Core_ITask
-     *
-     * Note: If the task uses MySQL or certain other outside resources, the connection will have to be
-     * re-established in the child process. There are three options:
-     *
-     * 1. Put any mysql setup or connection code in your task:
-     *    This is not suggested because it's bad design but it's certainly possible.
-     *
-     * 2. Run the same setup code in every background task:
-     *    Any event handlers you set using $this->on(ON_FORK) will be run in every forked Task and Worker process
-     *    before the callable is called.
-     *
-     * 3. Run setup code specific to the current background task:
-     *    If you need to run specific setup code for a task or worker you have to use an object. You can't use the shortened
-     *    form of passing a callback or closure. For tasks that means an object that implements Core_ITask. For workers,
-     *    it's Core_IWorker. The setup() and teardown() methods defined in the interfaces are natural places to handle
-     *    database connections, etc.
-     *
-     * @link https://github.com/shaneharter/PHP-Daemon/wiki/Tasks
-     *
-     * @param callable|Core_ITask $callable     A valid PHP callback or closure.
-     * @param Mixed                             All additional params are passed to the $callable
-     * @return int|boolean                      Return the PID of the newly-forked task or false on failure
-     */
-    public function task($task)
-    {
-        if ($this->shutdown) {
-            $this->log("Daemon is shutting down: Cannot run task()");
-            return false;
-        }
-
-        // Standardize the $task into a $callable
-        // If a Core_ITask was passed in, wrap it in a closure
-        if ($task instanceof Core_ITask) {
-            $callable = function() use($task) {
-                // By convention an is_parent variable is used when we need to keep track of process state.
-                if (isset($task->is_parent))
-                    $task->is_parent = false;
-
-                $task->setup();
-                call_user_func(array($task, 'start'));
-                $task->teardown();
-            };
-        } else {
-            $callable = $task;
-        }
-
-
-        $pid = pcntl_fork();
-        switch ($pid)
-        {
-            case -1:
-                // Parent Process - Fork Failed
-                $e = new Exception();
-                $this->error('Task failed: Could not fork.');
-                $this->error($e->getTraceAsString());
-                return false;
-                break;
-
-            case 0:
-                // Child Process
-                $this->start_time = time();
-                $this->is_parent  = false;
-                $this->parent_pid = $this->pid;
-                $this->pid(getmypid());
-                pcntl_setpriority(1);
-
-                // Remove unused worker objects. They can be memory hogs.
-                foreach(array_merge($this->workers, $this->plugins) as $object)
-                    if (!(is_array($callable) && $callable[0] == $this->{$object}))
-                        unset($this->{$object});
-
-                $this->workers = $this->worker_pids = $this->plugins = $this->stats = array();
-                $this->dispatch(array(self::ON_FORK));
-
-                try
-                {
-                    call_user_func_array($callable, array_slice(func_get_args(), 1));
-                }
-                catch (Exception $e)
-                {
-                    $this->error('Exception Caught in Fork: ' . $e->getMessage());
-                }
-
-                exit;
-                break;
-
-            default:
-                // Parent Process - Return the pid of the newly created Task
-                return $pid;
-                break;
-        }
     }
 
     /**
@@ -802,12 +600,9 @@ abstract class Core_Daemon
         $command = 'php ' . self::$filename;
 
         if ($options === false) {
-            $command .= ' -d --recoverworkers';
+            $command .= ' -d';
             if ($this->pid_file)
                 $command .= ' -p ' . $this->pid_file;
-
-            if ($this->debug_workers)
-                $command .= ' --debugworkers';
         }
         else {
             $command .= ' ' . trim($options);
@@ -826,10 +621,6 @@ abstract class Core_Daemon
      */
     private function dump()
     {
-        $workers = '';
-        foreach($this->workers as $worker)
-            $workers .= sprintf('%s %s [%s], ', $worker, $this->{$worker}->id(), $this->{$worker}->is_idle() ? 'AVAILABLE' : 'BUFFERING');
-
         $pretty_memory = function($bytes) {
             $kb = 1024; $mb = $kb * 1024; $gb = $mb * 1024;
             switch(true) {
@@ -877,8 +668,6 @@ abstract class Core_Daemon
         $out[] = "Daemon Mode:          " . $pretty_bool($this->daemon);
         $out[] = "Shutdown Signal:      " . $pretty_bool($this->shutdown);
         $out[] = "Process Type:         " . ($this->is_parent ? 'Application Process' : 'Background Process');
-        $out[] = "Plugins:              " . implode(', ', $this->plugins);
-        $out[] = "Workers:              " . $workers;
         $out[] = sprintf("Memory:               %s (%s)", memory_get_usage(true), $pretty_memory(memory_get_usage(true)));
         $out[] = sprintf("Peak Memory:          %s (%s)", memory_get_peak_usage(true), $pretty_memory(memory_get_peak_usage(true)));
         $out[] = "Current User:         " . get_current_user();
@@ -966,23 +755,6 @@ abstract class Core_Daemon
     }
 
     /**
-     * Maintain the worker process map and notify the worker of an exited process.
-     * @param bool $block   When true, method will block waiting for an exit signal
-     * @return void
-     */
-    private function reap($block = false)
-    {
-        do {
-            $pid = pcntl_wait($status, ($block && $this->is_parent) ? NULL : WNOHANG);
-            if (isset($this->worker_pids[$pid])) {
-                $alias = $this->worker_pids[$pid];
-                $this->{$alias}->reap($pid, $status);
-                unset($this->worker_pids[$pid]);
-            }
-        } while($pid > 0);
-    }
-
-    /**
      * There are 2 paths to the daemon calling restart: The Auto Restart feature, and, also, if a fatal error
      * is encountered after it's been running for a while, it will attempt to re-start.
      * @return void;
@@ -994,9 +766,6 @@ abstract class Core_Daemon
 
         $this->shutdown = true;
         $this->log('Restart Happening Now...');
-        foreach($this->plugins as $plugin)
-            $this->{$plugin}->teardown();
-
         $this->callbacks = array();
 
         // Close the resource handles to prevent this process from hanging on the exec() output.
@@ -1010,159 +779,15 @@ abstract class Core_Daemon
     }
 
     /**
-     * Load any plugin that implements the Core_IPlugin.
-     *
-     * A single instance of any plugin in the /Core/Plugin directory can be created just by passing-in the significant
-     * part of the class name as the alias. See the first ini example below.
-     *
-     * If you want to load custom plugins (or multiple instances of built-in plugins with different aliases) you can
-     * provide any valid alias with an instance of the plugin as the 2nd argument.
-     *
-     * It's important to understand that plugins and workers are both created as public instance variables (properties)
-     * so aliases must be unique among plugins and workers and cannot overwrite any existing instance variables in either
-     * Core_Daemon or your superclass.
-     *
-     * Both of the following examples are equivalent. In both cases, an Ini plugin will be instantiated at $this->ini:
-     * @example $this->plugin('ini');
-     * @example $this->plugin('ini', new Core_Plugins_Ini());
-     *
-     * To use two ini files just give them unique aliases:
-     * @example $this->plugin('credentials', new Core_Plugins_Ini());
-     *          $this->plugin('settings', new Core_Plugins_Ini());
-     *          $this->credentials->filename = '~/prod/credentials.ini';
-     *          $this->settings->filename = BASE_PATH . '/MyDaemon/settings.ini';
-     *          echo $this->credentials['mysql']['user']; // Echo the 'user' key in the 'mysql' section
-     *
-     * You can implicitly load Lock plugins if your alias includes "Lock_" (since they are not located in /Core/Plugin):
-     * @example $this->plugin('Lock_File'); // Instantiated at $this->Lock_File
-     *
-     * @param string $alias
-     * @param Core_IPlugin|null $instance
-     * @return Core_IPlugin Returns an instance of the plugin
-     * @throws Exception
-     */
-    protected function plugin($alias, Core_IPlugin $instance = null)
-    {
-        $this->check_alias($alias);
-
-        if ($instance === null) {
-            // This if wouldn't be necessary if /Lock lived inside /Plugin.
-            // Now that Locks are plugins in every other way, maybe it should be moved. OTOH, do we really need 4
-            // levels of directory depth in a project with like 10 files...?
-            if (substr(strtolower($alias), 0, 5) == 'lock_')
-                $class = 'Core_' . ucfirst($alias);
-            else
-                $class = 'Core_Plugin_' . ucfirst($alias);
-
-            if (class_exists($class, true)) {
-                $interfaces = class_implements($class, true);
-                if (is_array($interfaces) && isset($interfaces['Core_IPlugin'])) {
-                    $instance = new $class($this->getInstance());
-                }
-            }
-        }
-
-        if (!is_object($instance)) {
-            throw new Exception(__METHOD__ . " Failed. Could Not Load Plugin '{$alias}'");
-        }
-
-        $this->{$alias} = $instance;
-        $this->plugins[] = $alias;
-        return $instance;
-    }
-
-    /**
-     * Create a persistent Worker process.
-     * @param String $alias  The name of the worker -- Will be instantiated at $this->{$alias}
-     * @param callable|Core_IWorker $worker An object of type Core_Worker OR a callable (function, callback, closure)
-     * @return Core_Worker_ObjectMediator Returns a Core_Worker class that can be used to interact with the Worker
-     * @todo Use 'callable' type hinting if/when we move to a php 5.4 requirement.
-     */
-    protected function worker($alias, $worker)
-    {
-        if (!$this->is_parent)
-            // While in theory there is nothing preventing you from creating workers in child processes, supporting it
-            // would require changing a lot of error handling and process management code and I don't really see the value in it.
-            throw new Exception(__METHOD__ . ' Failed. You cannot create workers in a background processes.');
-
-        $this->check_alias($alias);
-
-        switch (true) {
-            case is_object($worker) && !is_a($worker, 'Closure'):
-                if ($this->debug_workers)
-                    $mediator = new Core_Worker_Debug_ObjectMediator($alias, $this);
-                else
-                    $mediator = new Core_Worker_ObjectMediator($alias, $this);
-
-                // Ensure that there are no reserved method names in the worker object -- Determine if there will
-                // be a collision between worker methods and public methods on the Mediator class
-                // Exclude any methods required by the Core_IWorker interface from the check.
-                $intersection = array_intersect(get_class_methods($worker), get_class_methods($mediator));
-                $intersection = array_diff($intersection, get_class_methods('Core_IWorker'));
-                if (!empty($intersection))
-                    throw new Exception(sprintf('%s Failed. Your worker class "%s" contains restricted method names: %s.',
-                        __METHOD__, get_class($worker), implode(', ', $intersection)));
-
-                $mediator->setObject($worker);
-                break;
-
-            case is_callable($worker):
-                if ($this->debug_workers)
-                    $mediator = new Core_Worker_Debug_FunctionMediator($alias, $this);
-                else
-                    $mediator = new Core_Worker_FunctionMediator($alias, $this);
-
-                $mediator->setFunction($worker);
-                break;
-
-            default:
-                throw new Exception(__METHOD__ . ' Failed. Could Not Load Worker: ' . $alias);
-        }
-
-        $this->workers[] = $alias;
-        $this->{$alias} = $mediator;
-        return $this->{$alias};
-    }
-
-    /**
-     * Used by the worker mediator to make the daemon aware of a process running for a given worker
-     * They're used, among other things, to notify the correct worker when a process exits
-     * @param $alias
-     * @param $pid
-     */
-    public function worker_pid($alias, $pid) {
-        $this->worker_pids[$pid] = $alias;
-    }
-
-    /**
-     * Simple function to validate that alises for Plugins or Workers won't interfere with each other or with existing daemon properties.
-     * @param $alias
-     * @throws Exception
-     */
-    private function check_alias($alias) {
-        if (empty($alias) || !is_scalar($alias))
-            throw new Exception("Invalid Alias. Identifiers must be scalar.");
-
-        if (isset($this->{$alias}))
-            throw new Exception("Invalid Alias. The identifier `{$alias}` is already in use or is reserved");
-    }
-
-    /**
      * Handle command line arguments. To easily extend, just add parent::getopt at the TOP of your overloading method.
      * @return void
      */
     protected function getopt()
     {
-        $opts = getopt('hHiI:o:dp:', array('install', 'recoverworkers', 'debugworkers'));
+        $opts = getopt('hHdp:');
 
         if (isset($opts['H']) || isset($opts['h']))
             $this->show_help();
-
-        if (isset($opts['i']))
-            $this->show_install_instructions();
-
-        if (isset($opts['I']))
-            $this->create_init_script($opts['I'], isset($opts['install']));
 
         if (isset($opts['d'])) {
             $pid = pcntl_fork();
@@ -1173,9 +798,7 @@ abstract class Core_Daemon
             $this->pid(getmypid()); // We have a new pid now
         }
 
-        $this->recover_workers = isset($opts['recoverworkers']);
-        $this->debug_workers = isset($opts['debugworkers']);
-        $this->verbose = $this->daemon == false && $this->debug_workers == false;
+        $this->verbose = $this->daemon == false;
 
         if (isset($opts['p'])) {
             $handle = @fopen($opts['p'], 'w');
@@ -1206,95 +829,15 @@ abstract class Core_Daemon
 
         echo get_class($this);
         $out[] =  'USAGE:';
-        $out[] =  ' # ' . basename(self::$filename) . ' -H | -i | -I TEMPLATE_NAME [--install] | [-d] [-p PID_FILE] [--recoverworkers] [--debugworkers]';
+        $out[] =  ' # ' . basename(self::$filename) . ' -H | [-d] | [-p PID_FILE]';
         $out[] =  '';
         $out[] =  'OPTIONS:';
         $out[] =  ' -H Shows this help';
-        $out[] =  ' -i Print any daemon install instructions to the screen';
-        $out[] =  ' -I Create init/config script';
-        $out[] =  '    You must pass in a name of a template from the /Templates directory';
-        $out[] =  '    OPTIONS:';
-        $out[] =  '     --install';
-        $out[] =  '       Install the script to /etc/init.d. Otherwise just output the script to stdout.';
-        $out[] =  '';
         $out[] =  ' -d Daemon, detach and run in the background';
         $out[] =  ' -p PID_FILE File to write process ID out to';
         $out[] =  '';
-        $out[] =  ' --recoverworkers';
-        $out[] =  '   Attempt to recover pending and incomplete calls from a previous instance of the daemon. Should be run under supervision after a daemon crash. Experimental.';
-        $out[] =  '';
-        $out[] =  ' --debugworkers';
-        $out[] =  '   Run workers under a debug console. Provides tools to debug the inter-process communication between workers.';
-        $out[] =  '   Console will only be displayed if Workers are used in your daemon';
-        $out[] =  '';
-        $out[] =  '';
 
         echo implode("\n", $out);
-        exit();
-    }
-
-    /**
-     * Print any install instructions and Exit.
-     * Could be anything from copying init.d scripts, setting crontab entries, creating executable or writable directories, etc.
-     * Add instructions from your daemon by adding them one by one: $this->install_instructions[] = 'Do foo'
-     * @return void
-     */
-    protected function show_install_instructions()
-    {
-        echo get_class($this) . " Installation Instructions:\n\n - ";
-        echo implode("\n - ", $this->install_instructions);
-        echo "\n";
-        exit();
-    }
-
-    /**
-     * Create and output an init script for this daemon to provide start/stop/restart functionality.
-     * Uses templates in the /Templates directory to produce scripts for different process managers and linux distros.
-     * When you create an init script, you should chmod it to 0755.
-     *
-     * @param string $template The name of a template from the /Templates directory
-     * @param bool $install When true, the script will be created in the init.d directory and final setup instructions will be printed to stdout
-     * @return void
-     */
-    protected function create_init_script($template_name, $install = false)
-    {
-        $template = dirname($this->filename()) . '/Core/Templates/' . $template_name;
-
-        if (!file_exists($template))
-            $this->show_help("Invalid Template Name '{$template_name}'");
-
-        $daemon = get_class($this);
-        $script = sprintf(
-            file_get_contents($template),
-            $daemon,
-            $this->getFilename("-d -p /var/run/{$daemon}.pid")
-        );
-
-        if (!$install) {
-            echo $script;
-            echo "\n\n";
-            exit;
-        }
-
-        // Print out template-specific setup instructions
-        switch($template_name) {
-            case 'init_ubuntu':
-                $filename = '/etc/init.d/' . $daemon;
-                $instructions = "\n - To run on startup on RedHat/CentOS:  sudo chkconfig --add {$filename}";
-                break;
-
-            default:
-                $instructions = '';
-        }
-
-        @file_put_contents($filename, $script);
-        @chmod($filename, 0755);
-        if (file_exists($filename) == false || is_executable($filename) == false)
-            $this->show_help("* Must Be Run as Sudo\n * Could Not Write Config File");
-
-        echo "Init Scripts Created Successfully!";
-        echo $instructions;
-        echo "\n\n";
         exit();
     }
 
@@ -1332,15 +875,6 @@ abstract class Core_Daemon
     public function is_daemon()
     {
         return $this->daemon;
-    }
-
-    /**
-     * Is the --recoverworkers flag set?
-     * @return boolean
-     */
-    public function recover_workers()
-    {
-        return $this->recover_workers;
     }
 
     /**
@@ -1456,7 +990,7 @@ abstract class Core_Daemon
                         $priority = -5;
                 }
 
-                if ($priority <> pcntl_getpriority()) {
+                if ($priority != pcntl_getpriority()) {
                     @pcntl_setpriority($priority);
                     if (pcntl_getpriority() == $priority) {
                         $this->log('Adjusting Process Priority to ' . $priority);
