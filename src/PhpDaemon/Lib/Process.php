@@ -2,8 +2,6 @@
 
 namespace Theintz\PhpDaemon\Lib;
 
-use Theintz\PhpDaemon\Worker\Call;
-
 class Process
 {
 
@@ -21,10 +19,6 @@ class Process
 
     public function runtime() {
         return microtime(true) - $this->microtime;
-    }
-
-    public function running(Call $call) {
-        $this->calls[] = $call->id;
     }
 
     public function timeout() {

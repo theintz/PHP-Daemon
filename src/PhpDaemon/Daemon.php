@@ -2,10 +2,6 @@
 
 namespace Theintz\PhpDaemon;
 
-use Theintz\PhpDaemon\Worker\FunctionMediator;
-use Theintz\PhpDaemon\Worker\ObjectMediator;
-use Theintz\PhpDaemon\Worker\Via\SysV;
-
 declare(ticks = 5);
 
 /**
@@ -40,14 +36,6 @@ abstract class Daemon
     const ON_IDLE           = 7;    // called when there is idle time at the end of a loop_interval, or at the idle_probability when loop_interval isn't used
     const ON_REAP           = 8;    // notification from the OS that a child process of this application has exited
     const ON_SHUTDOWN       = 10;   // called at the top of the destructor
-
-    /**
-     * An array of instructions that's displayed when the -i param is passed to the application.
-     * Helps sysadmins and users of your daemons get installation correct. Guide them to set
-     * correct permissions, supervisor/monit setup, crontab entries, init.d scripts, etc
-     * @var Array
-     */
-    protected $install_instructions = array();
 
     /**
      * The frequency of the event loop. In seconds.
@@ -101,12 +89,6 @@ abstract class Daemon
     private $pid;
 
     /**
-     * Array of worker aliases
-     * @var Array
-     */
-    private $workers = array();
-
-    /**
      * Array of plugin aliases
      * @var Array
      */
@@ -147,15 +129,6 @@ abstract class Daemon
      * @return void
      */
     protected function setup_plugins()
-    {
-
-    }
-
-    /**
-     * Implement this method to define workers
-     * @return void
-     */
-    protected function setup_workers()
     {
 
     }
@@ -207,7 +180,6 @@ abstract class Daemon
             {
                 $o = new static;
                 $o->setup_plugins();
-                $o->setup_workers();
                 $o->check_environment();
                 $o->init();
             }
@@ -257,8 +229,6 @@ abstract class Daemon
     {
         global $argv;
 
-        // We have to set any installation instructions before we call getopt()
-        $this->install_instructions[] = "Add to Supervisor or Monit, or add a Crontab Entry:\n   * * * * * " . $this->command();
         $this->set('filename',    $argv[0]);
         $this->set('start_time',  time());
         $this->pid(getmypid());
@@ -293,10 +263,6 @@ abstract class Daemon
         foreach ($this->plugins as $plugin)
             foreach ($this->{$plugin}->check_environment() as $error)
                 $errors[] = "[$plugin] $error";
-
-        foreach ($this->workers as $worker)
-            foreach ($this->{$worker}->check_environment() as $error)
-                $errors[] = "[$worker] $error";
 
         if (count($errors)) {
             $errors = implode("\n  ", $errors);
@@ -334,9 +300,6 @@ abstract class Daemon
 
         $this->dispatch(array(self::ON_INIT));
 
-        foreach ($this->workers as $worker)
-            $this->{$worker}->setup();
-
         $this->loop_interval($this->loop_interval);
 
         // Queue any housekeeping tasks we want performed periodically
@@ -359,7 +322,7 @@ abstract class Daemon
         {
             $this->set('shutdown', true);
             $this->dispatch(array(self::ON_SHUTDOWN));
-            foreach(array_merge($this->workers, $this->plugins) as $object) {
+            foreach($this->plugins as $object) {
                 $this->{$object}->teardown();
                 unset($this->{$object});
             }
@@ -403,10 +366,6 @@ abstract class Daemon
 
             return call_user_func_array(array($this, $method), array());
         }
-
-        // Handle any calls to __invoke()able objects
-        if (in_array($method, $this->workers))
-            return call_user_func_array($this->$method, $args);
 
         throw new Exception("Invalid Method Call '$method'");
     }
@@ -522,95 +481,6 @@ abstract class Daemon
             $this->callbacks[$event[0]][$callback_id]['call_at'] = time() + (int)$callback['throttle'];
             call_user_func_array($callback['callback'], $args);
         }
-    }
-
-    /**
-     * Run any task asynchronously by passing it to this method. Will fork into a child process, execute the supplied
-     * code, and exit.
-     *
-     * The $callable provided can be a standard PHP Callback, a Closure, or any object that implements ITask
-     *
-     * Note: If the task uses MySQL or certain other outside resources, the connection will have to be
-     * re-established in the child process. There are three options:
-     *
-     * 1. Put any mysql setup or connection code in your task:
-     *    This is not suggested because it's bad design but it's certainly possible.
-     *
-     * 2. Run the same setup code in every background task:
-     *    Any event handlers you set using $this->on(ON_FORK) will be run in every forked Task and Worker process
-     *    before the callable is called.
-     *
-     * 3. Run setup code specific to the current background task:
-     *    If you need to run specific setup code for a task or worker you have to use an object. You can't use the shortened
-     *    form of passing a callback or closure. For tasks that means an object that implements ITask. For workers,
-     *    it's IWorker. The setup() and teardown() methods defined in the interfaces are natural places to handle
-     *    database connections, etc.
-     *
-     * @link https://github.com/shaneharter/PHP-Daemon/wiki/Tasks
-     *
-     * @param callable|ITask $callable     A valid PHP callback or closure.
-     * @param Mixed                             All additional params are passed to the $callable
-     * @return Process|boolean         Return a newly created Process object or false on failure
-     */
-    public function task($task)
-    {
-        if ($this->is('shutdown')) {
-            $this->log("Daemon is shutting down: Cannot run task()");
-            return false;
-        }
-
-        // Standardize the $task into a $callable
-        // If a ITask was passed in, wrap it in a closure
-        // If no group is provided, add the process to an adhoc "tasks" group. A group identifier is required.
-        // @todo this group thing is not elegant. Improve it.
-        if ($task instanceof ITask) {
-            $group = $task->group();
-            $callable = function() use($task) {
-                $task->setup();
-                call_user_func(array($task, 'start'));
-                $task->teardown();
-            };
-        } else {
-            $group = 'tasks';
-            $callable = $task;
-        }
-
-        $proc = $this->ProcessManager->fork($group);
-
-        if ($proc === false) {
-            // Parent Process - Fork Failed
-            $e = new \Exception();
-            $this->error('Task failed: Could not fork.');
-            $this->error($e->getTraceAsString());
-            return false;
-        }
-
-        if ($proc === true) {
-
-            // Child Process
-            $this->set('start_time', time());
-            $this->set('parent',     false);
-            $this->set('parent_pid', $this->pid);
-            $this->pid(getmypid());
-
-            // Remove unused worker objects. They can be memory hogs.
-            foreach($this->workers as $worker)
-                if (!is_array($callable) || $callable[0] != $this->{$worker})
-                    unset($this->{$worker});
-
-            $this->workers = $this->stats = array();
-
-            try {
-                call_user_func_array($callable, array_slice(func_get_args(), 1));
-            } catch (\Exception $e) {
-                $this->error('Exception Caught in Task: ' . $e->getMessage());
-            }
-
-            exit;
-        }
-
-        // Parent Process - Return the newly created Process object
-        return $proc;
     }
 
     /**
@@ -778,10 +648,6 @@ abstract class Daemon
      */
     private function dump()
     {
-        $workers = '';
-        foreach($this->workers as $worker)
-            $workers .= sprintf('%s %s [%s], ', $worker, $this->{$worker}->guid, $this->{$worker}->is_idle() ? 'AVAILABLE' : 'BUFFERING');
-
         $pretty_memory = function($bytes) {
             $kb = 1024; $mb = $kb * 1024; $gb = $mb * 1024;
             switch(true) {
@@ -830,7 +696,6 @@ abstract class Daemon
         $out[] = "Shutdown Signal:      " . $pretty_bool($this->is('shutdown'));
         $out[] = "Process Type:         " . ($this->is('parent') ? 'Application Process' : 'Background Process');
         $out[] = "Plugins:              " . implode(', ', $this->plugins);
-        $out[] = "Workers:              " . $workers;
         $out[] = sprintf("Memory:               %s (%s)", memory_get_usage(true), $pretty_memory(memory_get_usage(true)));
         $out[] = sprintf("Peak Memory:          %s (%s)", memory_get_peak_usage(true), $pretty_memory(memory_get_peak_usage(true)));
         $out[] = "Current User:         " . get_current_user();
@@ -1007,57 +872,6 @@ abstract class Daemon
     }
 
     /**
-     * Create a persistent Worker process. This is an object loader similar to Daemon::plugin().
-     *
-     * @param String $alias  The name of the worker -- Will be instantiated at $this->{$alias}
-     * @param callable|IWorker $worker An object of type Worker OR a callable (function, callback, closure)
-     * @param IWorkerVia $via  A IWorkerVia object that defines the medium for IPC (In theory could be any message queue, redis, memcache, etc)
-     * @return ObjectMediator Returns a Worker class that can be used to interact with the Worker
-     * @todo Use 'callable' type hinting if/when we move to a php 5.4 requirement.
-     */
-    protected function worker($alias, $worker, IWorkerVia $via = null)
-    {
-        if (!$this->is('parent'))
-            // While in theory there is nothing preventing you from creating workers in child processes, supporting it
-            // would require changing a lot of error handling and process management code and I don't really see the value in it.
-            throw new Exception(__METHOD__ . ' Failed. You cannot create workers in a background processes.');
-
-        if ($via === null)
-            $via = new SysV();
-
-        $this->check_alias($alias);
-
-        switch (true) {
-            case is_object($worker) && !is_a($worker, 'Closure'):
-                $mediator = new ObjectMediator($alias, $this, $via);
-
-                // Ensure that there are no reserved method names in the worker object -- Determine if there will
-                // be a collision between worker methods and public methods on the Mediator class
-                // Exclude any methods required by the IWorker interface from the check.
-                $intersection = array_intersect(get_class_methods($worker), get_class_methods($mediator));
-                $intersection = array_diff($intersection, get_class_methods('IWorker'));
-                if (!empty($intersection))
-                    throw new Exception(sprintf('%s Failed. Your worker class "%s" contains restricted method names: %s.',
-                        __METHOD__, get_class($worker), implode(', ', $intersection)));
-
-                $mediator->setObject($worker);
-                break;
-
-            case is_callable($worker):
-                $mediator = new FunctionMediator($alias, $this, $via);
-                $mediator->setFunction($worker);
-                break;
-
-            default:
-                throw new Exception(__METHOD__ . ' Failed. Could Not Load Worker: ' . $alias);
-        }
-
-        $this->workers[] = $alias;
-        $this->{$alias} = $mediator;
-        return $this->{$alias};
-    }
-
-    /**
      * Simple function to validate that alises for Plugins or Workers won't interfere with each other or with existing daemon properties.
      * @param $alias
      * @throws Exception
@@ -1076,13 +890,10 @@ abstract class Daemon
      */
     protected function getopt()
     {
-        $opts = getopt('hHio:dp:', array('recoverworkers', 'debugworkers', 'verbose'));
+        $opts = getopt('hHdp:', array('verbose'));
 
         if (isset($opts['H']) || isset($opts['h']))
             $this->show_help();
-
-        if (isset($opts['i']))
-            $this->show_install_instructions();
 
         if (isset($opts['d'])) {
             if (pcntl_fork() > 0)
@@ -1092,8 +903,6 @@ abstract class Daemon
         }
 
         $this->set('daemonized',        isset($opts['d']));
-        $this->set('recover_workers',   isset($opts['recoverworkers']));
-        $this->set('debug_workers',     isset($opts['debugworkers']));
         $this->set('stdout',            !$this->is('daemonized') && !$this->get('debug_workers'));
         $this->set('verbose',           $this->is('stdout') && isset($opts['verbose']));
 
@@ -1126,11 +935,10 @@ abstract class Daemon
 
         echo get_class($this);
         $out[] =  'USAGE:';
-        $out[] =  ' $ ' . basename($this->get('filename')) . ' -H | -i | [-d] [-p PID_FILE] [--verbose] [--debugworkers]';
+        $out[] =  ' $ ' . basename($this->get('filename')) . ' -H | [-d] [-p PID_FILE] [--verbose]';
         $out[] =  '';
         $out[] =  'OPTIONS:';
         $out[] =  ' -H Shows this help';
-        $out[] =  ' -i Print any daemon install instructions to the screen';
         $out[] =  ' -d Daemon, detach and run in the background';
         $out[] =  ' -p PID_FILE File to write process ID out to';
         $out[] =  '';
@@ -1138,27 +946,9 @@ abstract class Daemon
         $out[] =  '   Include debug messages in the application log.';
         $out[] =  '   Note: When run as a daemon (-d) or with a debug shell (--debugworkers), application log messages are written only to the log file.';
         $out[] =  '';
-        $out[] =  ' --debugworkers';
-        $out[] =  '   Run workers under a debug console. Provides tools to debug the inter-process communication between workers.';
-        $out[] =  '   Console will only be displayed if Workers are used in your daemon';
-        $out[] =  '';
         $out[] =  '';
 
         echo implode("\n", $out);
-        exit();
-    }
-
-    /**
-     * Print any install instructions and Exit.
-     * Could be anything from copying init.d scripts, setting crontab entries, creating executable or writable directories, etc.
-     * Add instructions from your daemon by adding them one by one: $this->install_instructions[] = 'Do foo'
-     * @return void
-     */
-    protected function show_install_instructions()
-    {
-        echo get_class($this) . " Installation Instructions:\n\n - ";
-        echo implode("\n - ", $this->install_instructions);
-        echo "\n";
         exit();
     }
 
