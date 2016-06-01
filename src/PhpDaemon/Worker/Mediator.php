@@ -1,11 +1,20 @@
 <?php
+
+namespace Theintz\PhpDaemon\Worker;
+
+use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\ITask;
+use Theintz\PhpDaemon\IWorkerVia;
+use Theintz\PhpDaemon\Lib\DebugShell;
+use Theintz\PhpDaemon\Lib\Process;
+
 /**
  * Create and run worker processes.
  * Use message queues and shared memory to coordinate worker processes and return work product to the daemon.
  * Uses system v message queues because afaik there's no existing PHP implementation of posix  queues.
  *
  * At a high level, workers are implemented using a Mediator pattern. When a worker is created (by passing a Callable or
- * an instance of Core_IWorker to the Core_Daemon::worker() method) the Daemon creates a Mediator instance and
+ * an instance of IWorker to the Daemon::worker() method) the Daemon creates a Mediator instance and
  * passes-in the worker.
  *
  * When worker methods are called the Daemon is actually interacting with the Mediator instance. Calls are serialized in
@@ -26,7 +35,7 @@
  *
  * @author Shane Harter
  */
-abstract class Core_Worker_Mediator implements Core_ITask
+abstract class Mediator implements ITask
 {
     /**
      * The version is used in case formats change in the future.
@@ -91,12 +100,12 @@ abstract class Core_Worker_Mediator implements Core_ITask
     protected $forking_strategy = self::MIXED;
 
     /**
-     * @var Core_Daemon
+     * @var Daemon
      */
     public $daemon;
 
     /**
-     * @var Core_IWorkerVia
+     * @var IWorkerVia
      */
     protected $via;
 
@@ -109,7 +118,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
     /**
      * All Calls
      * A periodic garbage collection routine unsets ->args, ->return, leaving just the lightweight call meta-data behind
-     * @var Core_Worker_Call[]
+     * @var Call[]
      */
     protected $calls = array();
 
@@ -232,7 +241,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
 
 
-    public function __construct($alias, Core_Daemon $daemon, Core_IWorkerVia $via) {
+    public function __construct($alias, Daemon $daemon, IWorkerVia $via) {
         $this->alias            = $alias;
         $this->daemon           = $daemon;
         $this->via              = $via;
@@ -254,7 +263,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
     public function __destruct() {
 
-        if (!Core_Daemon::is('parent'))
+        if (!Daemon::is('parent'))
             return;
 
         // If there are no pending messages, release all shared resources.
@@ -280,7 +289,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
         return null;
     }
 
-    public function check_environment(Array $errors = array()) {
+    public function check_environment(array $errors = array()) {
         if (function_exists('posix_kill') == false)
             $errors[] = 'The POSIX Extension is Not Installed';
 
@@ -289,7 +298,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
 
     /**
-     * Create an instance of Core_Lib_DebugShell and pass in the current via object. Add appropriate closures and settings
+     * Create an instance of DebugShell and pass in the current via object. Add appropriate closures and settings
      * for the desired commands, prompts, etc.
      *
      * @return void
@@ -299,7 +308,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
         ##
         ## Wrap the current $via object in a DebugShell mediator
         ##
-        $this->via = new Core_Lib_DebugShell($this->via);
+        $this->via = new DebugShell($this->via);
         $this->via->daemon = $this->daemon;
         $this->via->setup_shell();
 
@@ -320,7 +329,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
                     break;
 
                 default:
-                    if (isset($args[0]) && $args[0] instanceof Core_Worker_Call)
+                    if (isset($args[0]) && $args[0] instanceof Call)
                         $call_id = $args[0]->id;
             }
 
@@ -331,7 +340,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
         };
 
         $this->via->prompt_prefix_callback = function($method, $args) use($alias) {
-            return sprintf('%s %s %s', $alias, getmypid(), (Core_Daemon::is('parent')) ? 'D' : 'W');
+            return sprintf('%s %s %s', $alias, getmypid(), (Daemon::is('parent')) ? 'D' : 'W');
         };
 
         ##
@@ -339,12 +348,12 @@ abstract class Core_Worker_Mediator implements Core_ITask
         ##
         $this->via->prompts['put'] = function($method, $args) use($alias) {
             $statuses = array(
-                Core_Worker_Mediator::UNCALLED   =>  'Daemon sending Call message to Worker',
-                Core_Worker_Mediator::RUNNING    =>  'Worker sending "running" ack message to Daemon',
-                Core_Worker_Mediator::RETURNED   =>  'Worker sending "return" ack message to Daemon',
+                Mediator::UNCALLED   =>  'Daemon sending Call message to Worker',
+                Mediator::RUNNING    =>  'Worker sending "running" ack message to Daemon',
+                Mediator::RETURNED   =>  'Worker sending "return" ack message to Daemon',
             );
 
-            if (!$args[0] instanceof Core_Worker_Call)
+            if (!$args[0] instanceof Call)
                 return false;
 
             return "[Call {$args[0]->id}] " . $statuses[$args[0]->status];
@@ -381,7 +390,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
                                 // If this is an object mediator, use inline() to grab an instance of the underlying worker object.
                                 // Otherwise use the mediator itself as the call context.
-                                $context = ($that instanceof Core_Worker_ObjectMediator) ? $that->inline() : $that;
+                                $context = ($that instanceof ObjectMediator) ? $that->inline() : $that;
                                 $function = array($context, $matches[1]);
                                 if (!is_callable($function)) {
                                     $printer('Function Not Callable!');
@@ -445,7 +454,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
             'command'     => 'call [f] [a,b..]',
             'description' => 'Display current process details.',
             'closure'     => function($matches, $printer) use($that) {
-                if (Core_Daemon::is('parent')) {
+                if (Daemon::is('parent')) {
                     $processes = $that->processes();
 
                     $out = array();
@@ -491,7 +500,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
      * @return bool
      */
     public function breakpoint($prompt = '', $indent = 0) {
-        if (!Core_Daemon::get('debug_workers'))
+        if (!Daemon::get('debug_workers'))
             return true;
 
         $call = debug_backtrace();
@@ -508,7 +517,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
         }
 
         $return = true;
-        if ($this->via instanceof Core_Lib_DebugShell)
+        if ($this->via instanceof DebugShell)
             $return = $this->via->prompt($method, $call['args']);
 
         if (isset($tmp))
@@ -524,7 +533,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
         // after the process is forked.
 
         $that = $this;
-        if (Core_Daemon::is('parent')) {
+        if (Daemon::is('parent')) {
 
             // Use the ftok() method to create a deterministic memory address.
             // This is a bit ugly but ftok needs a filesystem path so we give it one using the daemon filename and
@@ -546,9 +555,9 @@ abstract class Core_Worker_Mediator implements Core_ITask
             if ($this->daemon->get('debug_workers'))
                 $this->debug();
 
-            $this->daemon->on(Core_Daemon::ON_PREEXECUTE,   array($this, 'run'));
-            $this->daemon->on(Core_Daemon::ON_IDLE,         array($this, 'garbage_collector'), ceil(120 / ($this->workers * 0.5)));  // Throttle the garbage collector
-            $this->daemon->on(Core_Daemon::ON_SIGNAL,       array($this, 'dump'), null, function($args) {
+            $this->daemon->on(Daemon::ON_PREEXECUTE,   array($this, 'run'));
+            $this->daemon->on(Daemon::ON_IDLE,         array($this, 'garbage_collector'), ceil(120 / ($this->workers * 0.5)));  // Throttle the garbage collector
+            $this->daemon->on(Daemon::ON_SIGNAL,       array($this, 'dump'), null, function($args) {
                 return $args[0] == SIGUSR1;
             });
 
@@ -564,7 +573,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
                 $that->log('Restarting Worker Process...');
             };
 
-            $this->daemon->on(Core_Daemon::ON_SIGNAL, $event_restart, null, function($args) {
+            $this->daemon->on(Daemon::ON_SIGNAL, $event_restart, null, function($args) {
                 return $args[0] == SIGUSR1;
             });
 
@@ -574,11 +583,11 @@ abstract class Core_Worker_Mediator implements Core_ITask
     }
 
     public function teardown() {
-        // Required to satisfy Core_ITask
+        // Required to satisfy ITask
     }
 
     /**
-     * Satisfy the Core_ITask interface.
+     * Satisfy the ITask interface.
      * @return string
      */
     public function group() {
@@ -631,7 +640,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
         $errors = 0;
         for ($i=0; $i<$forks; $i++) {
 
-            // A Core_Lib_Process object will be returned from the task() method.
+            // A Process object will be returned from the task() method.
             // Set correct min_ttl and timeout values so the ProcessManager can do its job.
             if ($process = $this->daemon->task($this)) {
                 $process->timeout = $this->timeout;
@@ -653,7 +662,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
     /**
      * Called in each iteration of your daemon's event loop. Listens for worker Acks and enforces timeouts when applicable.
-     * Note: Called only in the parent (daemon) process, attached to the Core_Daemon::ON_PREEXECUTE event.
+     * Note: Called only in the parent (daemon) process, attached to the Daemon::ON_PREEXECUTE event.
      *
      * @return void
      */
@@ -721,7 +730,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
                         $this->log("Enforcing Timeout on Call $call_id in pid " . $call->pid);
 
-                        if($this->process($call->pid) instanceof Core_Lib_Process) {
+                        if($this->process($call->pid) instanceof Process) {
                           $this->process($call->pid)->kill();
                         }
                         $call->timeout();
@@ -743,7 +752,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
                 }
             }
 
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->log(__METHOD__ . ' Failed: ' . $e->getMessage(), true);
         }
     }
@@ -760,7 +769,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
         $entropy = round((mt_rand(-1000, 1000) + mt_rand(-1000, 1000) + mt_rand(-1000, 1000)) / 100, 0);
         $recycle = false;
 
-        while (!Core_Daemon::is('parent') && !Core_Daemon::is('shutdown') && !$recycle) {
+        while (!Daemon::is('parent') && !Daemon::is('shutdown') && !$recycle) {
 
             // Give the CPU a break - Sleep for 1/20 a second.
             usleep(50000);
@@ -784,7 +793,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
                         continue;
                     }
 
-                    $alias = ($this instanceof Core_Worker_ObjectMediator) ? $call->method : $this->alias;
+                    $alias = ($this instanceof ObjectMediator) ? $call->method : $this->alias;
                     if (!$this->breakpoint(sprintf('[Call %s] Calling method in worker', $call->id, $alias), $call->id)) {
                         $call->cancelled();
                         continue;
@@ -798,7 +807,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
                     if (!$this->via->put($call))
                         $this->log("Call {$call->id} Could Not Ack Complete.");
                 }
-                catch (Exception $e) {
+                catch (\Exception $e) {
                     $this->error($e->getMessage());
                 }
             }
@@ -809,14 +818,14 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
     /**
      * Mediate all calls to methods on the contained $object and pass them to instances of $object running in the background.
-     * @param Core_Worker_Call $call
+     * @param Call $call
      * @return integer   A unique-per-process identifier for the call OR false on error. That ID can be used to interact
      *                   with the call, eg checking the call status.
      */
-    protected function call(Core_Worker_Call $call) {
+    protected function call(Call $call) {
 
         $this->calls[$call->id] = $call;
-        $alias = ($this instanceof Core_Worker_ObjectMediator) ? $call->method : $this->alias;
+        $alias = ($this instanceof ObjectMediator) ? $call->method : $this->alias;
         if (!$this->breakpoint(sprintf('[Call %s] Call to %s()', $call->id, $alias), $call->id)) {
             $call->cancelled();
             return false;
@@ -828,7 +837,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
                 $this->fork();
                 return $call->id;
             }
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->log('Call Failed: ' . $e->getMessage(), true);
         }
 
@@ -847,15 +856,15 @@ abstract class Core_Worker_Mediator implements Core_ITask
      */
     public function __call($method, $args) {
         if (!in_array($method, $this->methods))
-            throw new Exception(__METHOD__ . " Failed. Method `{$method}` is not callable.");
+            throw new \Exception(__METHOD__ . " Failed. Method `{$method}` is not callable.");
 
         $this->call_count++;
-        return $this->call(new Core_Worker_Call($this->call_count, $method, $args));
+        return $this->call(new Call($this->call_count, $method, $args));
     }
 
     /**
      * Return the requested call from the local call cache if it exists
-     * @return Core_Worker_Call
+     * @return Call
      */
     public function get_struct($call_id) {
         if (isset($this->calls[$call_id]))
@@ -866,9 +875,9 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
     /**
      * Set the supplied $call into the local call cache, doing any merging with a previously-cached version is necessary
-     * @param Core_Worker_Call $call
+     * @param Call $call
      */
-    public function set_struct(Core_Worker_Call $call) {
+    public function set_struct(Call $call) {
         if(isset($this->calls[$call->id]))
             $this->calls[$call->id] = $call->merge($this->calls[$call->id]);
         else
@@ -889,7 +898,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
         $called = array();
         foreach ($this->calls as $call_id => &$call) {
-            if ($call->gc() && Core_Daemon::is('parent'))
+            if ($call->gc() && Daemon::is('parent'))
                 $this->via->drop($call_id);
 
             if ($call->status == self::CALLED)
@@ -898,7 +907,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
 
         unset($call);
 
-        if (!Core_Daemon::is('parent') || count($called) == 0)
+        if (!Daemon::is('parent') || count($called) == 0)
             return;
 
         // We need to determine if we have any "dropped calls" in CALLED status. This could happen in a few scenarios:
@@ -944,7 +953,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
      */
     public function count_error($type) {
         $this->error_counts[$type]++;
-        if ($this->error_counts[$type] > $this->error_thresholds[$type][(int)Core_Daemon::is('parent')])
+        if ($this->error_counts[$type] > $this->error_thresholds[$type][(int)Daemon::is('parent')])
             $this->fatal_error("IPC '$type' Error Threshold Reached");
     }
 
@@ -966,9 +975,9 @@ abstract class Core_Worker_Mediator implements Core_ITask
     }
 
     /**
-     * Helper function to retrieve the selected process from the Core_Daemon process registry
+     * Helper function to retrieve the selected process from the Daemon process registry
      * @param $pid
-     * @return Core_Lib_Process
+     * @return Process
      */
     public function process($pid) {
         if (isset($this->daemon->ProcessManager))
@@ -978,8 +987,8 @@ abstract class Core_Worker_Mediator implements Core_ITask
     }
 
     /**
-     * Helper function to retrieve all of this workers processes from the Core_Daemon process registry
-     * @return Core_Lib_Process[]
+     * Helper function to retrieve all of this workers processes from the Daemon process registry
+     * @return Process[]
      */
     public function processes() {
         if (isset($this->daemon->ProcessManager))
@@ -1155,9 +1164,9 @@ abstract class Core_Worker_Mediator implements Core_ITask
      * @param stdClass $call
      * @return bool
      */
-    public function retry(Core_Worker_Call $call) {
+    public function retry(Call $call) {
         if (empty($call->method))
-            throw new Exception(__METHOD__ . " Failed. A valid call struct is required.");
+            throw new \Exception(__METHOD__ . " Failed. A valid call struct is required.");
 
         $this->log("Retrying Call {$call->id} To `{$call->method}`");
         $call->retry();
@@ -1192,7 +1201,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
      */
     public function onTimeout($on_timeout) {
         if (!is_callable($on_timeout))
-            throw new Exception(__METHOD__ . " Failed. Callback or Closure expected.");
+            throw new \Exception(__METHOD__ . " Failed. Callback or Closure expected.");
 
         $this->on_timeout = $on_timeout;
     }
@@ -1208,7 +1217,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
      */
     public function onReturn($on_return) {
         if (!is_callable($on_return))
-            throw new Exception(__METHOD__ . " Failed. Callback or Closure expected.");
+            throw new \Exception(__METHOD__ . " Failed. Callback or Closure expected.");
 
         $this->on_return = $on_return;
     }
@@ -1223,7 +1232,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
      */
     public function timeout($timeout) {
         if (!is_numeric($timeout))
-            throw new Exception(__METHOD__ . " Failed. Numeric value expected.");
+            throw new \Exception(__METHOD__ . " Failed. Numeric value expected.");
 
         $this->timeout = $timeout;
     }
@@ -1245,14 +1254,14 @@ abstract class Core_Worker_Mediator implements Core_ITask
      */
     public function workers($workers) {
         if (!ctype_digit((string)$workers))
-            throw new Exception(__METHOD__ . " Failed. Numeric value expected.");
+            throw new \Exception(__METHOD__ . " Failed. Numeric value expected.");
 
         $this->workers = (int)$workers;
     }
 
     /**
      * Enable or disable worker auto restart mechanism. To find out how it works
-     * look at the beginning of Core_Worker_Mediator::start() method
+     * look at the beginning of Mediator::start() method
      *
      * Auto restart is enabled by default
      *
@@ -1262,7 +1271,7 @@ abstract class Core_Worker_Mediator implements Core_ITask
      */
     public function auto_restart($restart) {
         if (!is_bool($restart))
-            throw new Exception(__METHOD__ . " Failed. Boolean value expected.");
+            throw new \Exception(__METHOD__ . " Failed. Boolean value expected.");
 
         $this->auto_restart = $restart;
     }

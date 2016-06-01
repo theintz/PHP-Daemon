@@ -1,6 +1,8 @@
 <?php
 namespace Examples\LongPoll;
 
+use Theintz\PhpDaemon\Daemon;
+
 /**
  * A PHP Simple Daemon example application.
  * Use a background worker to continuously poll for updated information from an API and bring that information into the
@@ -8,7 +10,7 @@ namespace Examples\LongPoll;
  *
  * @author Shane Harter
  */
-class Poller extends \Core_Daemon
+class Poller extends Daemon
 {
     protected $loop_interval = 3;
 
@@ -24,7 +26,7 @@ class Poller extends \Core_Daemon
      */
 	  protected function setup_plugins()
 	  {
-        $this->plugin('Lock_File');
+        $this->plugin('File');
 
 		    $this->plugin('ini');
 		    $this->ini->filename = BASE_PATH . '/config.ini';
@@ -61,7 +63,7 @@ class Poller extends \Core_Daemon
         // We don't need any additional setup.
         // Implement an empty method to satisfy the abstract base class
 	}
-	
+
 	/**
 	 * This daemon will perform a continuous long-poll request against an API. When the API returns, we'll update
      * our $results array, then start the next polling request. There will always be a background worker polling for
@@ -93,21 +95,21 @@ class Poller extends \Core_Daemon
     public function set_results(Array $results) {
         $this->results = $results;
     }
-	
+
 	/**
-	 * Dynamically build the file name for the log file. This simple algorithm 
-	 * will rotate the logs once per day and try to keep them in a central /var/log location. 
+	 * Dynamically build the file name for the log file. This simple algorithm
+	 * will rotate the logs once per day and try to keep them in a central /var/log location.
 	 * @return string
 	 */
 	protected function log_file()
-	{	
+	{
 		$dir = '/var/log/daemons/longpoll';
 		if (@file_exists($dir) == false)
 			@mkdir($dir, 0777, true);
-		
+
 		if (@is_writable($dir) == false)
 			$dir = BASE_PATH . '/logs';
-		
+
 		return $dir . '/log_' . date('Ymd');
 	}
 }

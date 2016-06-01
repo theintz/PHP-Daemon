@@ -1,5 +1,11 @@
 <?php
 
+namespace Theintz\PhpDaemon;
+
+use Theintz\PhpDaemon\Worker\FunctionMediator;
+use Theintz\PhpDaemon\Worker\ObjectMediator;
+use Theintz\PhpDaemon\Worker\Via\SysV;
+
 declare(ticks = 5);
 
 /**
@@ -11,7 +17,7 @@ declare(ticks = 5);
  * @singleton
  * @abstract
  */
-abstract class Core_Daemon
+abstract class Daemon
 {
     /**
      * The application will attempt to restart itself it encounters a recoverable fatal error after it's been running
@@ -120,8 +126,8 @@ abstract class Core_Daemon
 
     /**
      * Dictionary of application-wide environment vars with defaults.
-     * @see Core_Daemon::set()
-     * @see Core_Daemon::get()
+     * @see Daemon::set()
+     * @see Daemon::get()
      * @var array
      */
     private static $env = array(
@@ -130,8 +136,8 @@ abstract class Core_Daemon
 
     /**
      * Handle for log() method,
-     * @see Core_Daemon::log()
-     * @see Core_Daemon::restart();
+     * @see Daemon::log()
+     * @see Daemon::restart();
      * @var stream
      */
     private static $log_handle = false;
@@ -159,7 +165,7 @@ abstract class Core_Daemon
      * It will be called as part of the built-in init() method.
      * Any exceptions thrown from setup() will be logged as Fatal Errors and result in the daemon shutting down.
      * @return void
-     * @throws Exception
+     * @throws \Exception
      */
     abstract protected function setup();
 
@@ -169,7 +175,7 @@ abstract class Core_Daemon
      * Any exceptions thrown from execute() will be logged as Fatal Errors and result in the daemon attempting to restart or shut down.
      *
      * @return void
-     * @throws Exception
+     * @throws \Exception
      */
     abstract protected function execute();
 
@@ -189,8 +195,8 @@ abstract class Core_Daemon
 
 
     /**
-     * Return an instance of the Core_Daemon singleton
-     * @return Core_Daemon
+     * Return an instance of the Daemon singleton
+     * @return Daemon
      */
     public static function getInstance()
     {
@@ -205,7 +211,7 @@ abstract class Core_Daemon
                 $o->check_environment();
                 $o->init();
             }
-            catch (Exception $e)
+            catch (\Exception $e)
             {
                 $o->fatal_error($e->getMessage());
             }
@@ -238,7 +244,7 @@ abstract class Core_Daemon
 
     /**
      * A simple alias for get() to create more semantically-correct and self-documenting code.
-     * @example Core_Daemon::get('parent') === Core_Daemon::is('parent')
+     * @example Daemon::get('parent') === Daemon::is('parent')
      * @param $key
      * @return Mixed
      */
@@ -265,9 +271,9 @@ abstract class Core_Daemon
      * and then call parent::check_environment($my_errors)
      * @param Array $errors
      * @return void
-     * @throws Exception
+     * @throws \Exception
      */
-    protected function check_environment(Array $errors = array())
+    protected function check_environment(array $errors = array())
     {
         if (is_numeric($this->loop_interval) == false)
             $errors[] = "Invalid Loop Interval: $this->loop_interval";
@@ -294,7 +300,7 @@ abstract class Core_Daemon
 
         if (count($errors)) {
             $errors = implode("\n  ", $errors);
-            throw new Exception("Checking Dependencies... Failed:\n  $errors");
+            throw new \Exception("Checking Dependencies... Failed:\n  $errors");
         }
     }
 
@@ -305,10 +311,10 @@ abstract class Core_Daemon
     private function init()
     {
         $signals = array (
-            // Handled by Core_Daemon:
+            // Handled by Daemon:
             SIGTERM, SIGINT, SIGUSR1, SIGHUP, SIGCHLD,
 
-            // Ignored by Core_Daemon -- register callback ON_SIGNAL to listen for them.
+            // Ignored by Daemon -- register callback ON_SIGNAL to listen for them.
             // Some of these are duplicated/aliased, listed here for completeness
             SIGUSR2, SIGCONT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGIOT, SIGBUS, SIGFPE, SIGSEGV, SIGPIPE, SIGALRM,
             SIGCONT, SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ, SIGVTALRM, SIGPROF,
@@ -358,7 +364,7 @@ abstract class Core_Daemon
                 unset($this->{$object});
             }
         }
-        catch (Exception $e)
+        catch (\Exception $e)
         {
             $this->fatal_error(sprintf('Exception Thrown in Shutdown: %s [file] %s [line] %s%s%s',
                 $e->getMessage(), $e->getFile(), $e->getLine(), PHP_EOL, $e->getTraceAsString()));
@@ -387,7 +393,7 @@ abstract class Core_Daemon
     {
         $deprecated = array('shutdown', 'verbose', 'is_daemon', 'filename');
         if (in_array($method, $deprecated)) {
-          throw new Exception("Deprecated method call: $method(). Update your code to use the v2.1 get(), set() and is() methods.");
+          throw new \Exception("Deprecated method call: $method(). Update your code to use the v2.1 get(), set() and is() methods.");
         }
 
         $accessors = array('loop_interval', 'pid');
@@ -402,7 +408,7 @@ abstract class Core_Daemon
         if (in_array($method, $this->workers))
             return call_user_func_array($this->$method, $args);
 
-        throw new Exception("Invalid Method Call '$method'");
+        throw new \Exception("Invalid Method Call '$method'");
     }
 
     /**
@@ -423,7 +429,7 @@ abstract class Core_Daemon
                 $this->timer();
             }
         }
-        catch (Exception $e)
+        catch (\Exception $e)
         {
             $this->fatal_error(sprintf('Uncaught Exception in Event Loop: %s [file] %s [line] %s%s%s',
                 $e->getMessage(), $e->getFile(), $e->getLine(), PHP_EOL, $e->getTraceAsString()));
@@ -441,12 +447,12 @@ abstract class Core_Daemon
      * @param $criteria closure|callback Optional. If provided, any event payload will be passed to this callable and
      *        the event dispatched only if it returns truthy.
      * @return array    The return value can be passed to off() to unbind the event
-     * @throws Exception
+     * @throws \Exception
      */
     public function on($event, $callback, $throttle = null, $criteria = null)
     {
         if (!is_scalar($event))
-            throw new Exception(__METHOD__ . ' Failed. Event type must be Scalar. Given: ' . gettype($event));
+            throw new \Exception(__METHOD__ . ' Failed. Event type must be Scalar. Given: ' . gettype($event));
 
         if (!isset($this->callbacks[$event]))
             $this->callbacks[$event] = array();
@@ -467,7 +473,7 @@ abstract class Core_Daemon
      * @param array $event  Should be the array returned when you called on()
      * @return callback|closure|null returns the registered event handler assuming $event is valid
      */
-    public function off(Array $event)
+    public function off(array $event)
     {
         if (isset($event[0]) && isset($event[1])) {
             $cb = $this->callbacks[$event[0]][$event[1]];
@@ -484,7 +490,7 @@ abstract class Core_Daemon
      *                      items (an event type, and a callback ID for that event type)
      * @param array $args   Array of arguments passed to the event listener
      */
-    public function dispatch(Array $event, Array $args = array())
+    public function dispatch(array $event, array $args = array())
     {
         if (!isset($event[0]) || !isset($this->callbacks[$event[0]]))
             return;
@@ -522,7 +528,7 @@ abstract class Core_Daemon
      * Run any task asynchronously by passing it to this method. Will fork into a child process, execute the supplied
      * code, and exit.
      *
-     * The $callable provided can be a standard PHP Callback, a Closure, or any object that implements Core_ITask
+     * The $callable provided can be a standard PHP Callback, a Closure, or any object that implements ITask
      *
      * Note: If the task uses MySQL or certain other outside resources, the connection will have to be
      * re-established in the child process. There are three options:
@@ -536,15 +542,15 @@ abstract class Core_Daemon
      *
      * 3. Run setup code specific to the current background task:
      *    If you need to run specific setup code for a task or worker you have to use an object. You can't use the shortened
-     *    form of passing a callback or closure. For tasks that means an object that implements Core_ITask. For workers,
-     *    it's Core_IWorker. The setup() and teardown() methods defined in the interfaces are natural places to handle
+     *    form of passing a callback or closure. For tasks that means an object that implements ITask. For workers,
+     *    it's IWorker. The setup() and teardown() methods defined in the interfaces are natural places to handle
      *    database connections, etc.
      *
      * @link https://github.com/shaneharter/PHP-Daemon/wiki/Tasks
      *
-     * @param callable|Core_ITask $callable     A valid PHP callback or closure.
+     * @param callable|ITask $callable     A valid PHP callback or closure.
      * @param Mixed                             All additional params are passed to the $callable
-     * @return Core_Lib_Process|boolean         Return a newly created Process object or false on failure
+     * @return Process|boolean         Return a newly created Process object or false on failure
      */
     public function task($task)
     {
@@ -554,10 +560,10 @@ abstract class Core_Daemon
         }
 
         // Standardize the $task into a $callable
-        // If a Core_ITask was passed in, wrap it in a closure
+        // If a ITask was passed in, wrap it in a closure
         // If no group is provided, add the process to an adhoc "tasks" group. A group identifier is required.
         // @todo this group thing is not elegant. Improve it.
-        if ($task instanceof Core_ITask) {
+        if ($task instanceof ITask) {
             $group = $task->group();
             $callable = function() use($task) {
                 $task->setup();
@@ -573,7 +579,7 @@ abstract class Core_Daemon
 
         if ($proc === false) {
             // Parent Process - Fork Failed
-            $e = new Exception();
+            $e = new \Exception();
             $this->error('Task failed: Could not fork.');
             $this->error($e->getTraceAsString());
             return false;
@@ -596,19 +602,19 @@ abstract class Core_Daemon
 
             try {
                 call_user_func_array($callable, array_slice(func_get_args(), 1));
-            } catch (Exception $e) {
-                $this->error('Exception Caught in Task: ' . $e->getMessage());
+            } catch (\Exception $e) {
+                $this->error('\Exception Caught in Task: ' . $e->getMessage());
             }
 
             exit;
         }
 
-        // Parent Process - Return the newly created Core_Lib_Process object
+        // Parent Process - Return the newly created Process object
         return $proc;
     }
 
     /**
-     * Log the $message to the filename returned by Core_Daemon::log_file() and/or optionally print to stdout.
+     * Log the $message to the filename returned by Daemon::log_file() and/or optionally print to stdout.
      * Multi-Line messages will be handled nicely.
      *
      * Note: Your log_file() method will be called every 5 minutes (at even increments, eg 00:05, 00:10, 00:15, etc) to
@@ -622,7 +628,7 @@ abstract class Core_Daemon
      * @param string $label Truncated at 12 chars
      */
     public function log($message, $label = '', $indent = 0)
-    {        
+    {
         static $log_file = '';
         static $log_file_check_at = 0;
         static $log_file_error = false;
@@ -674,7 +680,7 @@ abstract class Core_Daemon
      * Log the provided $message and dispatch an ON_ERROR event.
      *
      * The library has no concept of a runtime error. If your application doesn't attach any ON_ERROR listeners, there
-     * is literally no difference between using this and just passing the message to Core_Daemon::log().
+     * is literally no difference between using this and just passing the message to Daemon::log().
      *
      * @param $message
      * @param string $label
@@ -870,7 +876,7 @@ abstract class Core_Daemon
 
         // If we have idle time, do any housekeeping tasks
         if ($is_idle()) {
-            $this->dispatch(array(Core_Daemon::ON_IDLE), array($is_idle));
+            $this->dispatch(array(Daemon::ON_IDLE), array($is_idle));
         }
 
         $stats = array();
@@ -942,7 +948,7 @@ abstract class Core_Daemon
     }
 
     /**
-     * Load any plugin that implements the Core_IPlugin.
+     * Load any plugin that implements the IPlugin.
      *
      * This is an object loader. What we care about is what object to create and where to put it. What we care about first
      * is an alias. This will be the name of the instance variable where the object will be set. If the alias also matches the name
@@ -950,18 +956,18 @@ abstract class Core_Daemon
      * two examples are identical:
      *
      * @example $this->plugin('ini');
-     * @example $this->plugin('ini', new Core_Plugin_Ini() );
+     * @example $this->plugin('ini', new Ini() );
      *
-     * In both of the preceding examples, a Core_Plugin_Ini object is available throughout your application object
+     * In both of the preceding examples, a Ini object is available throughout your application object
      * as $this->ini.
      *
      * More complex (or just less magical) code can be used when appropriate. Want to load multiple instances of a plugin?
      * Want to use more meaningful names in your application instead of just duplicating part of the class name?
      * You can do all that too. This is simple dependency injection. Inject whatever object you want at runtime as long
-     * as it implements Core_IPlugin.
+     * as it implements IPlugin.
      *
-     * @example $this->plugin('credentials', new Core_Plugins_Ini());
-     *          $this->plugin('settings', new Core_Plugins_Ini());
+     * @example $this->plugin('credentials', new Plugins_Ini());
+     *          $this->plugin('settings', new Plugins_Ini());
      *          $this->credentials->filename = '~/prod/credentials.ini';
      *          $this->settings->filename = BASE_PATH . '/MyDaemon/settings.ini';
      *          echo $this->credentials['mysql']['user']; // Echo the 'user' key in the 'mysql' section
@@ -969,20 +975,20 @@ abstract class Core_Daemon
      * Note: As demonstrated, the alias is used simply as the name of a public instance variable on your application
      * object. All of the normal rules of reality apply: Aliases must be unique across plugins AND workers (which work
      * exactly like plugins in this respect). And both must be unique from any other instance or class vars used in
-     * Core_Daemon or in your application superclass.
+     * Daemon or in your application superclass.
      *
      * Note: The Lock objects in Core/Lock are also Plugins and can be loaded in nearly the same way.
-     * Take Core_Lock_File for instance.  The only difference is that you cannot magically load it using the alias
+     * Take File for instance.  The only difference is that you cannot magically load it using the alias
      * 'file' alone. The Plugin loader would not know to look for the file in the Lock directory. In these instances
      * the prefix is necessary.
-     * @example $this->plugin('Lock_File'); // Instantiated at $this->Lock_File
+     * @example $this->plugin('File'); // Instantiated at $this->File
      *
      * @param string $alias
-     * @param Core_IPlugin|null $instance
-     * @return Core_IPlugin Returns an instance of the plugin
-     * @throws Exception
+     * @param IPlugin|null $instance
+     * @return IPlugin Returns an instance of the plugin
+     * @throws \Exception
      */
-    protected function plugin($alias, Core_IPlugin $instance = null)
+    protected function plugin($alias, IPlugin $instance = null)
     {
         $this->check_alias($alias);
 
@@ -991,20 +997,20 @@ abstract class Core_Daemon
             // Now that Locks are plugins in every other way, maybe it should be moved. OTOH, do we really need 4
             // levels of directory depth in a project with like 10 files...?
             if (substr(strtolower($alias), 0, 5) == 'lock_')
-                $class = 'Core_' . ucfirst($alias);
+                $class = '' . ucfirst($alias);
             else
-                $class = 'Core_Plugin_' . ucfirst($alias);
+                $class = 'Plugin\\' . ucfirst($alias);
 
             if (class_exists($class, true)) {
                 $interfaces = class_implements($class, true);
-                if (is_array($interfaces) && isset($interfaces['Core_IPlugin'])) {
+                if (is_array($interfaces) && isset($interfaces['IPlugin'])) {
                     $instance = new $class($this->getInstance());
                 }
             }
         }
 
         if (!is_object($instance)) {
-            throw new Exception(__METHOD__ . " Failed. Could Not Load Plugin '{$alias}'");
+            throw new \Exception(__METHOD__ . " Failed. Could Not Load Plugin '{$alias}'");
         }
 
         $this->{$alias} = $instance;
@@ -1013,49 +1019,49 @@ abstract class Core_Daemon
     }
 
     /**
-     * Create a persistent Worker process. This is an object loader similar to Core_Daemon::plugin().
+     * Create a persistent Worker process. This is an object loader similar to Daemon::plugin().
      *
      * @param String $alias  The name of the worker -- Will be instantiated at $this->{$alias}
-     * @param callable|Core_IWorker $worker An object of type Core_Worker OR a callable (function, callback, closure)
-     * @param Core_IWorkerVia $via  A Core_IWorkerVia object that defines the medium for IPC (In theory could be any message queue, redis, memcache, etc)
-     * @return Core_Worker_ObjectMediator Returns a Core_Worker class that can be used to interact with the Worker
+     * @param callable|IWorker $worker An object of type Worker OR a callable (function, callback, closure)
+     * @param IWorkerVia $via  A IWorkerVia object that defines the medium for IPC (In theory could be any message queue, redis, memcache, etc)
+     * @return ObjectMediator Returns a Worker class that can be used to interact with the Worker
      * @todo Use 'callable' type hinting if/when we move to a php 5.4 requirement.
      */
-    protected function worker($alias, $worker, Core_IWorkerVia $via = null)
+    protected function worker($alias, $worker, IWorkerVia $via = null)
     {
         if (!$this->is('parent'))
             // While in theory there is nothing preventing you from creating workers in child processes, supporting it
             // would require changing a lot of error handling and process management code and I don't really see the value in it.
-            throw new Exception(__METHOD__ . ' Failed. You cannot create workers in a background processes.');
+            throw new \Exception(__METHOD__ . ' Failed. You cannot create workers in a background processes.');
 
         if ($via === null)
-            $via = new Core_Worker_Via_SysV();
+            $via = new SysV();
 
         $this->check_alias($alias);
 
         switch (true) {
             case is_object($worker) && !is_a($worker, 'Closure'):
-                $mediator = new Core_Worker_ObjectMediator($alias, $this, $via);
+                $mediator = new ObjectMediator($alias, $this, $via);
 
                 // Ensure that there are no reserved method names in the worker object -- Determine if there will
                 // be a collision between worker methods and public methods on the Mediator class
-                // Exclude any methods required by the Core_IWorker interface from the check.
+                // Exclude any methods required by the IWorker interface from the check.
                 $intersection = array_intersect(get_class_methods($worker), get_class_methods($mediator));
-                $intersection = array_diff($intersection, get_class_methods('Core_IWorker'));
+                $intersection = array_diff($intersection, get_class_methods('IWorker'));
                 if (!empty($intersection))
-                    throw new Exception(sprintf('%s Failed. Your worker class "%s" contains restricted method names: %s.',
+                    throw new \Exception(sprintf('%s Failed. Your worker class "%s" contains restricted method names: %s.',
                         __METHOD__, get_class($worker), implode(', ', $intersection)));
 
                 $mediator->setObject($worker);
                 break;
 
             case is_callable($worker):
-                $mediator = new Core_Worker_FunctionMediator($alias, $this, $via);
+                $mediator = new FunctionMediator($alias, $this, $via);
                 $mediator->setFunction($worker);
                 break;
 
             default:
-                throw new Exception(__METHOD__ . ' Failed. Could Not Load Worker: ' . $alias);
+                throw new \Exception(__METHOD__ . ' Failed. Could Not Load Worker: ' . $alias);
         }
 
         $this->workers[] = $alias;
@@ -1066,14 +1072,14 @@ abstract class Core_Daemon
     /**
      * Simple function to validate that alises for Plugins or Workers won't interfere with each other or with existing daemon properties.
      * @param $alias
-     * @throws Exception
+     * @throws \Exception
      */
     private function check_alias($alias) {
         if (empty($alias) || !is_scalar($alias))
-            throw new Exception("Invalid Alias. Identifiers must be scalar.");
+            throw new \Exception("Invalid Alias. Identifiers must be scalar.");
 
         if (isset($this->{$alias}))
-            throw new Exception("Invalid Alias. The identifier `{$alias}` is already in use or is reserved");
+            throw new \Exception("Invalid Alias. The identifier `{$alias}` is already in use or is reserved");
     }
 
     /**
@@ -1237,7 +1243,7 @@ abstract class Core_Daemon
             return $this->loop_interval;
 
         if (!is_numeric($set_value))
-            throw new Exception(__METHOD__ . ' Failed. Could not set loop interval. Number Expected. Given: ' . $set_value);
+            throw new \Exception(__METHOD__ . ' Failed. Could not set loop interval. Number Expected. Given: ' . $set_value);
 
         $this->loop_interval = $set_value;
 
@@ -1270,7 +1276,7 @@ abstract class Core_Daemon
             return $this->pid;
 
         if (!is_integer($set_value))
-            throw new Exception(__METHOD__ . ' Failed. Could not set pid. Integer Expected. Given: ' . $set_value);
+            throw new \Exception(__METHOD__ . ' Failed. Could not set pid. Integer Expected. Given: ' . $set_value);
 
         $this->pid = $set_value;
         if ($this->is('parent'))

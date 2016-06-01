@@ -1,17 +1,19 @@
 <?php
+
+namespace Theintz\PhpDaemon\Worker;
 /**
  * Adapt a supplied function to the Worker Mediator class
  *
- * Note: Any changes here need to be duplicated in Core_Worker_Debug_FunctionMediator.
+ * Note: Any changes here need to be duplicated in Debug_FunctionMediator.
  *       That sucks and will change once we release a version targeted for PHP 5.4 where we can use traits to hold
  *       the debug logic.
  *
  * @author Shane Harter
  */
-final class Core_Worker_FunctionMediator extends Core_Worker_Mediator
+final class FunctionMediator extends Mediator
 {
     /**
-     * @var Core_IWorker
+     * @var IWorker
      */
     protected $function;
 
@@ -22,7 +24,7 @@ final class Core_Worker_FunctionMediator extends Core_Worker_Mediator
      */
     public function setFunction($f) {
         if (!is_callable($f)) {
-            throw new Exception(__METHOD__ . " Failed. Supplied argument is not callable!");
+            throw new \Exception(__METHOD__ . " Failed. Supplied argument is not callable!");
         }
         $this->function = $f;
         $this->methods = array('execute');
@@ -48,7 +50,7 @@ final class Core_Worker_FunctionMediator extends Core_Worker_Mediator
                 break;
 
             default:
-                throw new Exception("$method() is Not Callable.");
+                throw new \Exception("$method() is Not Callable.");
         }
     }
 

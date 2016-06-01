@@ -2,7 +2,9 @@
 
 namespace Examples\Tasks;
 
-class ParallelTasks extends \Core_Daemon
+use Theintz\PhpDaemon\Daemon;
+
+class ParallelTasks extends Daemon
 {
     protected  $loop_interval = 1;
 
@@ -11,11 +13,11 @@ class ParallelTasks extends \Core_Daemon
      */
 	protected function setup_plugins()
 	{
-        $this->plugin('Lock_File');
+        $this->plugin('File');
 	}
-	
+
 	/**
-	 * This is where you implement any once-per-execution setup code. 
+	 * This is where you implement any once-per-execution setup code.
 	 * @return void
 	 * @throws \Exception
 	 */
@@ -23,10 +25,10 @@ class ParallelTasks extends \Core_Daemon
 	{
 
 	}
-	
+
 	/**
-	 * This is where you implement the tasks you want your daemon to perform. 
-	 * This method is called at the frequency defined by loop_interval. 
+	 * This is where you implement the tasks you want your daemon to perform.
+	 * This method is called at the frequency defined by loop_interval.
 	 *
 	 * @return void
 	 */
@@ -57,19 +59,19 @@ class ParallelTasks extends \Core_Daemon
 	}
 
 	/**
-	 * Dynamically build the file name for the log file. This simple algorithm 
-	 * will rotate the logs once per day and try to keep them in a central /var/log location. 
+	 * Dynamically build the file name for the log file. This simple algorithm
+	 * will rotate the logs once per day and try to keep them in a central /var/log location.
 	 * @return string
 	 */
 	protected function log_file()
-	{	
+	{
 		$dir = '/var/log/daemons/paralleltasks';
 		if (@file_exists($dir) == false)
 			@mkdir($dir, 0777, true);
-		
+
 		if (@is_writable($dir) == false)
 			$dir = BASE_PATH . '/example_logs';
-		
+
 		return $dir . '/log_' . date('Ymd');
 	}
 }

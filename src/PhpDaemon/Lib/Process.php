@@ -1,6 +1,10 @@
 <?php
 
-class Core_Lib_Process
+namespace Theintz\PhpDaemon\Lib;
+
+use Theintz\PhpDaemon\Worker\Call;
+
+class Process
 {
 
     public $pid;
@@ -19,7 +23,7 @@ class Core_Lib_Process
         return microtime(true) - $this->microtime;
     }
 
-    public function running(Core_Worker_Call $call) {
+    public function running(Call $call) {
         $this->calls[] = $call->id;
     }
 

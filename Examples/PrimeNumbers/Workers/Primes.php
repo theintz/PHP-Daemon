@@ -2,12 +2,14 @@
 
 namespace Examples\PrimeNumbers;
 
+use Theintz\PhpDaemon\IWorker;
+
 /**
  * Fun with Prime Numbers
  * PHP Simple Daemon Worker
  * @author Shane Harter
  */
-class Workers_Primes implements \Core_IWorker
+class Workers_Primes implements IWorker
 {
     /**
      * Reference to the mediator is automatically provided

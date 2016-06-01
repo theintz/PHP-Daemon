@@ -1,6 +1,14 @@
 <?php
 
-class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
+namespace Theintz\PhpDaemon\Worker\Via;
+
+use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\IPlugin;
+use Theintz\PhpDaemon\IWorkerVia;
+use Theintz\PhpDaemon\Worker\Call;
+use Theintz\PhpDaemon\Worker\Mediator;
+
+class SysV implements IWorkerVia, IPlugin {
 
     /**
      * Each SHM block has a header with needed metadata.
@@ -13,7 +21,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
     const ERROR_UNKNOWN = -1;
 
     /**
-     * @var Core_Worker_Mediator
+     * @var Mediator
      */
     public $mediator;
 
@@ -67,14 +75,14 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
     */
     public function setup() {
         $this->setup_ipc();
-        if (Core_Daemon::is('parent'))
+        if (Daemon::is('parent'))
             $this->setup_shm();
 
         if (!is_resource($this->queue))
-            throw new Exception(__METHOD__ . " Failed. Could not attach message queue id {$this->mediator->guid}");
+            throw new \Exception(__METHOD__ . " Failed. Could not attach message queue id {$this->mediator->guid}");
 
         if (!is_resource($this->shm))
-            throw new Exception(__METHOD__ . " Failed. Could not address shared memory block {$this->mediator->guid}");
+            throw new \Exception(__METHOD__ . " Failed. Could not address shared memory block {$this->mediator->guid}");
     }
 
     /**
@@ -88,7 +96,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
      * This is called during object construction to validate any dependencies
      * @return Array  Return array of error messages (Think stuff like "GD Library Extension Required" or "Cannot open /tmp for Writing") or an empty array
      */
-    public function check_environment(Array $errors = array()) {
+    public function check_environment(array $errors = array()) {
         return $errors;
     }
 
@@ -111,12 +119,12 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
         // Write a header to the shared memory block
         if (!shm_has_var($this->shm, self::HEADER_ADDRESS)) {
             $header = array(
-                'version' => Core_Worker_Mediator::VERSION,
+                'version' => Mediator::VERSION,
                 'memory_allocation' => $this->memory_allocation,
             );
 
             if (!shm_put_var($this->shm, self::HEADER_ADDRESS, $header))
-                throw new Exception(__METHOD__ . " Failed. Could Not Read Header. If this problem persists, try manually cleaning your system's SysV Shared Memory allocations.\nYou can use built-in tools on the linux commandline or a helper script shipped with PHP Simple Daemon. ");
+                throw new \Exception(__METHOD__ . " Failed. Could Not Read Header. If this problem persists, try manually cleaning your system's SysV Shared Memory allocations.\nYou can use built-in tools on the linux commandline or a helper script shipped with PHP Simple Daemon. ");
         }
 
         // Check memory allocation and warn the user if their malloc() is not actually applicable (eg they changed the malloc but used --recoverworkers)
@@ -126,7 +134,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
               PHP_EOL . 'The existing memory_limit is ' . $header['memory_allocation'] . ' bytes.');
 
         // If we're trying to recover previous messages/shm, scan the shared memory block for call structs and import them
-        // @todo if we keep this functionality, we need to at least remove it as a CLI option implemented by Core_Daemon because this will not apply to other Via conveyances
+        // @todo if we keep this functionality, we need to at least remove it as a CLI option implemented by Daemon because this will not apply to other Via conveyances
 
         if ($this->mediator->daemon->is('parent') && $this->mediator->daemon->get('recover_workers')) {
             $max_id = $this->call_count;
@@ -169,10 +177,10 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
     public function malloc($bytes = null) {
         if ($bytes !== null) {
             if (!is_int($bytes))
-                throw new Exception(__METHOD__ . " Failed. Could not set SHM allocation size. Expected Integer. Given: " . gettype($bytes));
+                throw new \Exception(__METHOD__ . " Failed. Could not set SHM allocation size. Expected Integer. Given: " . gettype($bytes));
 
             if (is_resource($this->shm))
-                throw new Exception(__METHOD__ . " Failed. Can Not Re-Allocate SHM Size. You will have to restart the daemon without the --recoverworkers option to resize.");
+                throw new \Exception(__METHOD__ . " Failed. Can Not Re-Allocate SHM Size. You will have to restart the daemon without the --recoverworkers option to resize.");
 
             $this->memory_allocation = $bytes;
         }
@@ -186,11 +194,11 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
     * @param $message
     * @return boolean
     */
-    public function put(Core_Worker_Call $call) {
+    public function put(Call $call) {
         $that = $this;
         switch($call->status) {
-            case Core_Worker_Mediator::UNCALLED:
-            case Core_Worker_Mediator::RETURNED:
+            case Mediator::UNCALLED:
+            case Mediator::RETURNED:
                 $encoder = function($call) use ($that) {
                     shm_put_var($that->shm, $call->id, $call);
                     return shm_has_var($that->shm, $call->id);
@@ -222,7 +230,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
     /**
     * Retrieves a message from the queue
     * @param $desired_type
-    * @return Core_Worker_Call
+    * @return Call
     */
     public function get($desired_type, $blocking = false) {
         $blocking = $blocking ? 0 : MSG_IPC_NOWAIT;
@@ -235,17 +243,17 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
 
         $that = $this;
         switch($message['status']) {
-            case Core_Worker_Mediator::UNCALLED:
+            case Mediator::UNCALLED:
                 $decoder = function($message) use($that) {
                     $call = shm_get_var($that->shm, $message['call_id']);
-                    if ($message['microtime'] < $call->time[Core_Worker_Mediator::UNCALLED])    // Has been requeued - Cancel this call
+                    if ($message['microtime'] < $call->time[Mediator::UNCALLED])    // Has been requeued - Cancel this call
                         $call->cancelled();
 
                     return $call;
                 };
                 break;
 
-            case Core_Worker_Mediator::RETURNED:
+            case Mediator::RETURNED:
                 $decoder = function($message) use($that) {
                     $call = shm_get_var($that->shm, $message['call_id']);
                     if ($call && $call->status == $message['status'])
@@ -262,7 +270,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
                     // If we don't have a local copy of $call the most likely scenario is a --recoverworkers situation.
                     // Create a placeholder. We'll get a full copy of the struct when it's returned from the worker
                     if (!$call)
-                        $call = new Core_Worker_Call($message['call_id']);
+                        $call = new Call($message['call_id']);
 
                     $call->status($message['status']);
                     $call->pid = $message['pid'];
@@ -277,7 +285,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
         } while(empty($call) && $this->error(null, $tries) && $tries++ < 3);
 
         if (!is_object($call))
-            throw new Exception(__METHOD__ . " Failed. Could Not Decode Message: " . print_r($message, true));
+            throw new \Exception(__METHOD__ . " Failed. Could Not Decode Message: " . print_r($message, true));
 
         if (!$this->memory_allocation_warning && $call->size > ($this->memory_allocation / 50)) {
             $this->memory_allocation_warning = true;
@@ -385,7 +393,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
                 $this->mediator->log('Permission Denied: Cannot connect to message queue');
                 $this->purge_mq();
 
-                if (Core_Daemon::is('parent'))
+                if (Daemon::is('parent'))
                     usleep($this->mediator->backoff(100000, $try));
                 else
                     sleep($this->mediator->backoff(3, $try));
@@ -402,7 +410,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
                 // Identifier Removed
                 // A message queue was re-created at this address but the resource identifier we have needs to be re-created
                 $this->mediator->count_error('communication');
-                if (Core_Daemon::is('parent'))
+                if (Daemon::is('parent'))
                     usleep($this->mediator->backoff(20000, $try));
                 else
                     sleep($this->mediator->backoff(2, $try));
@@ -418,7 +426,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
 
                 // If this is a worker, all we can do is try to re-attach the shared memory.
                 // Any corruption or OOM errors will be handled by the parent exclusively.
-                if (!Core_Daemon::is('parent')) {
+                if (!Daemon::is('parent')) {
                     sleep($this->mediator->backoff(3, $try));
                     $this->setup_ipc();
                     return true;
@@ -453,10 +461,10 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
                     if (!is_object($cached))
                         continue;
 
-                    if ($cached->status == Core_Worker_Mediator::TIMEOUT)
+                    if ($cached->status == Mediator::TIMEOUT)
                         continue;
 
-                    if ($cached->status == Core_Worker_Mediator::UNCALLED) {
+                    if ($cached->status == Mediator::UNCALLED) {
                         $items_to_call[$i] = $call;
                         continue;
                     }
@@ -494,7 +502,7 @@ class Core_Worker_Via_SysV implements Core_IWorkerVia, Core_IPlugin {
                 if ($error)
                     $this->mediator->log("Message Queue Error {$error}: " . posix_strerror($error));
 
-                if (Core_Daemon::is('parent'))
+                if (Daemon::is('parent'))
                     usleep($this->mediator->backoff(100000, $try));
                 else
                     sleep($this->mediator->backoff(3, $try));

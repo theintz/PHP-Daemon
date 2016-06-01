@@ -1,7 +1,7 @@
 #!/usr/bin/php
 <?php
 require_once 'config.php';
-require_once 'error_handlers.php';
+require_once '../../src/error_handlers.php';
 
 use Examples\Tasks;
 

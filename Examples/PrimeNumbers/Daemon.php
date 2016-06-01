@@ -2,6 +2,10 @@
 
 namespace Examples\PrimeNumbers;
 
+use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\Plugin\Ini;
+use Theintz\PhpDaemon\Worker\Via\SysV;
+
 /**
  * This Daemon has been created to demonstrate the Workers API in 2.0.
  *
@@ -12,7 +16,7 @@ namespace Examples\PrimeNumbers;
  * described in the db.sql file.
  *
  */
-class Daemon extends \Core_Daemon
+class PrimeDaemon extends Daemon
 {
     protected $loop_interval = 1;
 
@@ -34,7 +38,7 @@ class Daemon extends \Core_Daemon
 
     protected function setup_plugins()
     {
-        $this->plugin('Lock_File');
+        $this->plugin('File');
         // This daemon will respond to signals sent from the commandline.
         // 1) You can send a signal that will calculate factors of a random number
         // 2) You can send a signal that will find primes within a random range.
@@ -43,7 +47,7 @@ class Daemon extends \Core_Daemon
         // We also have other various settings defined in the ini, so we validate that the ini has both [signals] and [default] section
         // We're using the INI file here only because it's a conveinient way to demonstrate using the INI plugin.
 
-        $this->plugin('settings', new \Core_Plugin_Ini());
+        $this->plugin('settings', new Ini());
         $this->settings->filename = BASE_PATH . '/config/settings.ini';
         $this->settings->required_sections = array('signals', 'default');
     }
@@ -68,7 +72,7 @@ class Daemon extends \Core_Daemon
         // - Look at Workers_Primes to see the available methods. They are: sieve, is_prime, primes_among
 
 
-        $via = new \Core_Worker_Via_SysV();
+        $via = new SysV();
         $via->malloc(30 * 1024 * 1024);
 
         $this->worker('PrimeNumbers', new Workers_Primes(), $via);
@@ -109,7 +113,7 @@ class Daemon extends \Core_Daemon
         // - In the Return handler, we are using the PrimeNumbers worker to determine the prime factors.
         $this->worker('GetFactors', function($integer)  {
             if (!is_integer($integer))
-                throw new Exception('Invalid Input! Expected Integer. Given: ' . gettype($integer));
+                throw new \Exception('Invalid Input! Expected Integer. Given: ' . gettype($integer));
 
             $factors = array();
             for ($i=2; $i<($integer/2); $i++)
@@ -151,7 +155,7 @@ class Daemon extends \Core_Daemon
         // the workers. Load a configurable signal map from the loaded ini plugin
 
         $that = $this;
-        $this->on(\Core_Daemon::ON_SIGNAL, function($signal) use($that) {
+        $this->on(Daemon::ON_SIGNAL, function($signal) use($that) {
             if (isset($that->settings['signals'][$signal])) {
                 $action = $that->settings['signals'][$signal];
 

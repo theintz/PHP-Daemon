@@ -1,10 +1,11 @@
 <?php
+
+namespace Theintz\PhpDaemon\Lib;
+
 /**
- *
  * @author sharter
  */
-
-class Core_Lib_Command
+class Command
 {
     public $regex;
 
@@ -27,8 +28,8 @@ class Core_Lib_Command
 
     /**
      * Apply the $input against the command regex. If it matches, the contained $callable will be called and its result
-     * will be available in Core_Lib_Command::result. It will return true. The result will be available until match() is called again.
-     * The input matched against is also available as Core_Lib_Command::result_input
+     * will be available in Command::result. It will return true. The result will be available until match() is called again.
+     * The input matched against is also available as Command::result_input
      *
      * The passed array of $args is passed to the callable with an array of regex matches appened. Eg if you pass an
      * $args array with 2 values, they will be the first and second args passed into the callable, and the matches array will be the 3rd.
@@ -37,7 +38,7 @@ class Core_Lib_Command
      * @param array $args
      * @return bool
      */
-    public function match($input, Array $args = array()) {
+    public function match($input, array $args = array()) {
         $this->result_input = $this->result = $matches = null;
         if (preg_match($this->regex, $input, $matches) == 1) {
             array_unshift($args, $matches);
@@ -48,5 +49,4 @@ class Core_Lib_Command
 
         return false;
     }
-
 }

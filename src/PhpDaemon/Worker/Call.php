@@ -1,6 +1,8 @@
 <?php
 
-class Core_Worker_Call extends stdClass
+namespace Theintz\PhpDaemon\Worker;
+
+class Call
 {
 
     public $return;
@@ -17,7 +19,7 @@ class Core_Worker_Call extends stdClass
     public $time          = array();
 
 
-    public function __construct($id, $method = null, Array $args = null) {
+    public function __construct($id, $method = null, array $args = null) {
         $this->id          = $id;
         $this->method      = $method;
         $this->args        = $args;
@@ -31,11 +33,11 @@ class Core_Worker_Call extends stdClass
      */
     public function runtime() {
         switch($this->status) {
-            case Core_Worker_Mediator::RUNNING:
-                return microtime(true) - $this->time[Core_Worker_Mediator::RUNNING];
+            case Mediator::RUNNING:
+                return microtime(true) - $this->time[Mediator::RUNNING];
 
-            case Core_Worker_Mediator::RETURNED:
-                return $this->time[Core_Worker_Mediator::RETURNED] - $this->time[Core_Worker_Mediator::RUNNING];
+            case Mediator::RETURNED:
+                return $this->time[Mediator::RETURNED] - $this->time[Mediator::RUNNING];
 
             default:
                 return 0;
@@ -44,13 +46,13 @@ class Core_Worker_Call extends stdClass
 
     /**
      * Merge in data from the supplied $call into this call
-     * @param Core_Worker_Call $call
-     * @return Core_Worker_Call
+     * @param Call $call
+     * @return Call
      */
-    public function merge(Core_Worker_Call $call) {
+    public function merge(Call $call) {
         // This could end up being more sophisticated and complex.
         // But for now, the only modifications to this struct in the worker are timestamps at status changes.
-        $this->time[Core_Worker_Mediator::CALLED] = $call->time[Core_Worker_Mediator::CALLED];
+        $this->time[Mediator::CALLED] = $call->time[Mediator::CALLED];
         return $this;
     }
 
@@ -59,7 +61,7 @@ class Core_Worker_Call extends stdClass
      * @return bool
      */
     public function is_active() {
-        return !in_array($this->status, array(Core_Worker_Mediator::TIMEOUT, Core_Worker_Mediator::RETURNED, Core_Worker_Mediator::CANCELLED));
+        return !in_array($this->status, array(Mediator::TIMEOUT, Mediator::RETURNED, Mediator::CANCELLED));
     }
 
     /**
@@ -93,7 +95,7 @@ class Core_Worker_Call extends stdClass
     }
 
     /**
-     * Prepare the Call struct to be passed back to the Core_Worker_Mediator::call() method for another go-around
+     * Prepare the Call struct to be passed back to the Mediator::call() method for another go-around
      * @return void
      */
     public function retry() {
@@ -103,30 +105,30 @@ class Core_Worker_Call extends stdClass
     }
 
     public function timeout($microtime = null) {
-        return $this->status(Core_Worker_Mediator::TIMEOUT,    $microtime);
+        return $this->status(Mediator::TIMEOUT,    $microtime);
     }
 
     public function cancelled($microtime = null) {
-        return $this->status(Core_Worker_Mediator::CANCELLED,  $microtime);
+        return $this->status(Mediator::CANCELLED,  $microtime);
     }
 
     public function returned($return, $microtime = null) {
         $this->return = $return;
         $this->update_size();
-        return $this->status(Core_Worker_Mediator::RETURNED,   $microtime);
+        return $this->status(Mediator::RETURNED,   $microtime);
     }
 
     public function running($microtime = null) {
         $this->pid = getmypid();
-        return $this->status(Core_Worker_Mediator::RUNNING,    $microtime);
+        return $this->status(Mediator::RUNNING,    $microtime);
     }
 
     public function called($microtime = null) {
-        return $this->status(Core_Worker_Mediator::CALLED,     $microtime);
+        return $this->status(Mediator::CALLED,     $microtime);
     }
 
     public function uncalled($microtime = null) {
-        return $this->status(Core_Worker_Mediator::UNCALLED,   $microtime);
+        return $this->status(Mediator::UNCALLED,   $microtime);
     }
 
     /**
@@ -134,13 +136,13 @@ class Core_Worker_Call extends stdClass
      * @return int
      */
     public function queue() {
-        return Core_Worker_Mediator::$queue_map[$this->status];
+        return Mediator::$queue_map[$this->status];
     }
 
     public function status($status, $microtime = null) {
         // You can restart a Call (back to status 0) but you can't decrement or arbitrarily set the status
         if ($status < $this->status && $status > 0)
-            throw new Exception(__METHOD__ . " Failed: Cannot Rewind Status. Current Status: {$this->status} Given: {$status}");
+            throw new \Exception(__METHOD__ . " Failed: Cannot Rewind Status. Current Status: {$this->status} Given: {$status}");
 
         if ($microtime === null)
             $microtime = microtime(true);

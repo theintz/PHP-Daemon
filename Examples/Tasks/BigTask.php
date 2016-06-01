@@ -2,6 +2,8 @@
 
 namespace Examples\Tasks;
 
+use Theintz\PhpDaemon\ITask;
+
 /**
  * Demonstrate using a Core_ITask object to create a more complex task
  * This won't actually do anything but you get the idea
@@ -9,7 +11,7 @@ namespace Examples\Tasks;
  * @author Shane Harter
  * @todo Create a plausible demo of a complex task that implements \Core_ITask
  */
-class BigTask implements \Core_ITask
+class BigTask implements ITask
 {
     /**
      * A handle to the Daemon object
@@ -60,5 +62,15 @@ class BigTask implements \Core_ITask
        sleep($this->sleep_duration);
        if ($this->wakeup_message)
            $this->daemon->log($this->wakeup_message);
+    }
+
+    /**
+     * Give your ITask object a group name so the ProcessManager can identify and group processes. Or return Null
+     * to just use the current __class__ name.
+     *
+     * @return string
+     */
+    public function group() {
+        // TODO: Implement group() method.
     }
 }

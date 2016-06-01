@@ -21,7 +21,7 @@
  * @param $e Used when this is a user-generated error from an uncaught exception
  * @return boolean
  */
-function daemon_error($errno, $errstr, $errfile, $errline, $errcontext = null, Exception $e = null)
+function daemon_error($errno, $errstr, $errfile, $errline, $errcontext = null, \Exception $e = null)
 {
     static $runonce = true;
     static $is_writable = true;
@@ -79,7 +79,7 @@ function daemon_error($errno, $errstr, $errfile, $errline, $errcontext = null, E
         if ($is_fatal)
         {
             if (!$e)
-                $e = new Exception;
+                $e = new \Exception;
             error_log(str_replace(PHP_EOL, PHP_EOL . str_repeat(' ', 23), print_r($e->getTraceAsString(), true)));
         }
     }
@@ -90,7 +90,7 @@ function daemon_error($errno, $errstr, $errfile, $errline, $errcontext = null, E
         if ($is_fatal)
         {
             if (!$e)
-                $e = new Exception;
+                $e = new \Exception;
             echo $e->getTraceAsString(), PHP_EOL;
         }
     }
@@ -108,7 +108,7 @@ function daemon_error($errno, $errstr, $errfile, $errline, $errcontext = null, E
  * @param Exception $e
  *
  */
-function daemon_exception(Exception $e)
+function daemon_exception(\Exception $e)
 {
     daemon_error(-1, $e->getMessage(), $e->getFile(), $e->getLine(), null, $e);
 }

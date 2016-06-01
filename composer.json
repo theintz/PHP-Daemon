@@ -17,8 +17,8 @@
 		"ext-pcntl": "*"
 	},
 	"autoload": {
-		"psr-0": {
-			"Core": ""
+		"psr-4": {
+			"Theintz\\PhpDaemon": "src/PhpDaemon/"
 		}
 	}
 }

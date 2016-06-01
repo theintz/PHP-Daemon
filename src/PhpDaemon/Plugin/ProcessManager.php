@@ -1,10 +1,16 @@
 <?php
 
+namespace Theintz\PhpDaemon\Plugin;
+
+use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\IPlugin;
+use Theintz\PhpDaemon\Lib\Process;
+
 /**
  * Manage creation and shutdown of Worker and Task processes used by the Daemon
  * @author Shane Harter
  */
-class Core_Plugin_ProcessManager implements Core_IPlugin
+class ProcessManager implements IPlugin
 {
 
     /**
@@ -18,12 +24,12 @@ class Core_Plugin_ProcessManager implements Core_IPlugin
     const CHURN_LIMIT = 5;
 
     /**
-     * @var Core_Daemon
+     * @var Daemon
      */
     public $daemon;
 
     /**
-     * @var Core_Lib_Process[]
+     * @var Process[]
      */
     public $processes = array();
 
@@ -35,7 +41,7 @@ class Core_Plugin_ProcessManager implements Core_IPlugin
 
 
 
-    public function __construct(Core_Daemon $daemon) {
+    public function __construct(Daemon $daemon) {
         $this->daemon = $daemon;
     }
 
@@ -48,7 +54,7 @@ class Core_Plugin_ProcessManager implements Core_IPlugin
      * @return void
      */
     public function setup() {
-        $this->daemon->on(Core_Daemon::ON_IDLE, array($this, 'reap'), 30);
+        $this->daemon->on(Daemon::ON_IDLE, array($this, 'reap'), 30);
     }
 
     /**
@@ -77,8 +83,8 @@ class Core_Plugin_ProcessManager implements Core_IPlugin
      * NOTE: At a minimum you should ensure that if $errors is not empty that you pass it along as the return value.
      * @return Array  Return array of error messages (Think stuff like "GD Library Extension Required" or "Cannot open /tmp for Writing") or an empty array
      */
-    public function check_environment(Array $errors = array()) {
-        if (! $this->daemon instanceof Core_Daemon)
+    public function check_environment(array $errors = array()) {
+        if (! $this->daemon instanceof Daemon)
             $errors[] = "Invalid reference to Application Object";
 
         return $errors;
@@ -107,7 +113,7 @@ class Core_Plugin_ProcessManager implements Core_IPlugin
     /**
      * The $processes array is hierarchical by process group. This will return a flat array of processes.
      * @param null $group
-     * @return Core_Lib_Process[]
+     * @return Process[]
      */
     public function processes($group = null) {
         if ($group)
@@ -127,7 +133,7 @@ class Core_Plugin_ProcessManager implements Core_IPlugin
     /**
      * Return a single process by its pid
      * @param $pid
-     * @return Core_Lib_Process
+     * @return Process
      */
     public function process($pid) {
         foreach($this->processes as $process_group)
@@ -140,7 +146,7 @@ class Core_Plugin_ProcessManager implements Core_IPlugin
     /**
      * Fork a new process, optionally within the supplied process $group.
      * @param null $group
-     * @return bool|Core_Lib_Process    On failure, will return false. On success, a Core_Lib_Process object will be
+     * @return bool|Process    On failure, will return false. On success, a Process object will be
      *         returned to the caller in the original (parent) process, and True will be returned to the caller in the
      *         new (child) process.
      */
@@ -156,12 +162,12 @@ class Core_Plugin_ProcessManager implements Core_IPlugin
             case 0:
                 // Child Process
                 @ pcntl_setpriority(1);
-                $this->daemon->dispatch(array(Core_Daemon::ON_FORK));
+                $this->daemon->dispatch(array(Daemon::ON_FORK));
                 return true;
 
             default:
                 // Parent Process - Return the pid of the newly created Task
-                $proc = new Core_Lib_Process();
+                $proc = new Process();
                 $proc->pid = $pid;
                 $proc->group = $group;
 
@@ -190,7 +196,7 @@ class Core_Plugin_ProcessManager implements Core_IPlugin
 
             $alias   = $map[$pid]->group;
             $process = $this->processes[$alias][$pid];
-            $this->daemon->dispatch(array(Core_Daemon::ON_REAP), array($process, $status));
+            $this->daemon->dispatch(array(Daemon::ON_REAP), array($process, $status));
             unset($this->processes[$alias][$pid]);
 
             // Keep track of process churn -- failures within a processes min_ttl

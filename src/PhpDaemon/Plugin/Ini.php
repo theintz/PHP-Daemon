@@ -1,5 +1,9 @@
 <?php
 
+namespace Theintz\PhpDaemon\Plugin;
+
+use Theintz\PhpDaemon\IPlugin;
+
 /**
  * Integrate an INI file into your daemon.
  * - Ensure daemon integrity by using the integrated validation: Pass in an array of required_sections that will be validated when the daemon starts.
@@ -12,7 +16,7 @@
  * @since 2011/7/30
  *
  */
-class Core_Plugin_Ini implements Core_IPlugin, ArrayAccess
+class Ini implements IPlugin, \ArrayAccess
 {
     /**
      * This is the config file accessed by self::__construct
@@ -48,7 +52,7 @@ class Core_Plugin_Ini implements Core_IPlugin, ArrayAccess
                 $missing_sections[] = $section;
 
         if (count($missing_sections))
-            throw new Exception(__METHOD__ . ' Failed: Seems the config file is missing required sections: ' . implode(',', $missing_sections));
+            throw new \Exception(__METHOD__ . ' Failed: Seems the config file is missing required sections: ' . implode(',', $missing_sections));
     }
 
     /**
@@ -64,7 +68,7 @@ class Core_Plugin_Ini implements Core_IPlugin, ArrayAccess
      * This is called during object construction to validate any dependencies
      * @return Array    Return array of error messages (Think stuff like "GD Library Extension Required" or "Cannot open /tmp for Writing") or an empty array
      */
-    public function check_environment(Array $errors = array())
+    public function check_environment(array $errors = array())
     {
         $errors = array();
 
@@ -97,7 +101,7 @@ class Core_Plugin_Ini implements Core_IPlugin, ArrayAccess
         if (is_scalar($offset))
             $this->contents[$offset] = $value;
 
-        throw new Exception('Could not set INI value: $offset must be a scalar');
+        throw new \Exception('Could not set INI value: $offset must be a scalar');
     }
 
     /**

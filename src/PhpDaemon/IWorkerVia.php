@@ -1,6 +1,10 @@
 <?php
 
-interface Core_IWorkerVia
+namespace Theintz\PhpDaemon;
+
+use Theintz\PhpDaemon\Worker\Call;
+
+interface IWorkerVia
 {
     /**
      * Puts the message on the queue
@@ -8,12 +12,12 @@ interface Core_IWorkerVia
      * @param $message
      * @return boolean
      */
-    public function put(Core_Worker_Call $message);
+    public function put(Call $message);
 
     /**
      * Retrieves a message from the queue
      * @param $desired_type
-     * @return Core_Worker_Call
+     * @return Call
      */
     public function get($desired_type, $blocking = false);
 

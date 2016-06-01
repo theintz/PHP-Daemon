@@ -1,18 +1,23 @@
 <?php
+
+namespace Theintz\PhpDaemon\Worker;
+
+use Theintz\PhpDaemon\IWorker;
+
 /**
  * Adapt a supplied object to the Worker Mediator
  *
- * Note: Any changes here need to be duplicated in Core_Worker_Debug_ObjectMediator.
+ * Note: Any changes here need to be duplicated in Debug_ObjectMediator.
  *       That sucks and will change once we release a version targeted for PHP 5.4 where we can use traits to hold
  *       the debug logic.
  *
  * @author Shane Harter
  */
-final class Core_Worker_ObjectMediator extends Core_Worker_Mediator
+final class ObjectMediator extends Mediator
 {
 
     /**
-     * @var Core_IWorker
+     * @var IWorker
      */
     protected $object;
 
@@ -29,8 +34,8 @@ final class Core_Worker_ObjectMediator extends Core_Worker_Mediator
     }
 
     public function setObject($o) {
-        if (!($o instanceof Core_IWorker)) {
-            throw new Exception(__METHOD__ . " Failed. Worker objects must implement Core_IWorker");
+        if (!($o instanceof IWorker)) {
+            throw new \Exception(__METHOD__ . " Failed. Worker objects must implement IWorker");
         }
         $this->object = $o;
         $this->object->mediator = $this;
@@ -38,11 +43,11 @@ final class Core_Worker_ObjectMediator extends Core_Worker_Mediator
         $this->methods = get_class_methods($this->class);
     }
 
-    public function check_environment(Array $errors = array()) {
+    public function check_environment(array $errors = array()) {
         $errors = array();
 
-        if (!is_object($this->object) || !$this->object instanceof Core_IWorker)
-            $errors[] = 'Invalid worker object. Workers must implement Core_IWorker';
+        if (!is_object($this->object) || !$this->object instanceof IWorker)
+            $errors[] = 'Invalid worker object. Workers must implement IWorker';
 
         $object_errors = $this->object->check_environment();
         if (is_array($object_errors))
@@ -57,7 +62,7 @@ final class Core_Worker_ObjectMediator extends Core_Worker_Mediator
             return $cb;
         }
 
-        throw new Exception("$method() is Not Callable.");
+        throw new \Exception("$method() is Not Callable.");
     }
 
 
@@ -69,7 +74,7 @@ final class Core_Worker_ObjectMediator extends Core_Worker_Mediator
      * @example Your worker object returns data from a webservice, you can put methods in the class to format the data.
      *          In that case you can call it in-process for brevity and convenience.
      * @example $this->DataService->inline()->pretty_print($result);
-     * @return Core_IWorker
+     * @return IWorker
      */
     public function inline() {
         return $this->object;

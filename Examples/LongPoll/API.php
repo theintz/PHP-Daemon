@@ -1,13 +1,15 @@
 <?php
 namespace Examples\LongPoll;
 
+use Theintz\PhpDaemon\IWorker;
+
 /**
  * Example API Consumer class implementing the PHP Simple Daemon Worker interface.
  * Simulates an API Call by generating random results and sleeping a randomly long amount of time.
  *
  * @author: Shane Harter
  */
-class API implements \Core_IWorker
+class API implements IWorker
 {
     /**
      * Provided Automatically

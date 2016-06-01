@@ -1,25 +1,31 @@
 <?php
 
+namespace Theintz\PhpDaemon\Plugin;
+
+use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\IPlugin;
+use Theintz\PhpDaemon\Lib\Command;
+
 /**
  * Create a simple socket server.
- * Supply an IP and Port for incoming connections. Add any number of Core_Lib_Command objects to parse client input.
+ * Supply an IP and Port for incoming connections. Add any number of Command objects to parse client input.
  *
- * Used in blocking mode, this can be the backbone of a Core_Daemon based server with a loop_interval set to Null.
- * Alternatively, you could set $blocking = false and use it to interact with a timer-based Core_Daemon application.
+ * Used in blocking mode, this can be the backbone of a Daemon based server with a loop_interval set to Null.
+ * Alternatively, you could set $blocking = false and use it to interact with a timer-based Daemon application.
  *
  * Can be combined with the Worker API by adding Command objects that call methods attached to a Worker. That would leave
  * the main Application process to handle connections and client input, worker process management, and passing commands
  * between client input to worker calls, and worker return values to client output.
  *
  */
-class Core_Plugin_Server implements Core_IPlugin
+class Server implements IPlugin
 {
     const COMMAND_CONNECT       = 'CLIENT_CONNECT';
     const COMMAND_DISCONNECT    = 'CLIENT_DISCONNECT';
     const COMMAND_DESTRUCT      = 'SERVER_DISCONNECT';
 
     /**
-     * @var Core_Daemon
+     * @var Daemon
      */
     public $daemon;
 
@@ -80,12 +86,12 @@ class Core_Plugin_Server implements Core_IPlugin
      * CLIENT_DISCONNECT(stdClass Client)
      * SERVER_DISCONNECT
      *
-     * @var Core_Lib_Command[]
+     * @var Command[]
      */
     private $commands = array();
 
 
-    public function __construct(Core_Daemon $daemon) {
+    public function __construct(Daemon $daemon) {
         $this->daemon = $daemon;
     }
 
@@ -102,11 +108,11 @@ class Core_Plugin_Server implements Core_IPlugin
         if (!socket_bind($this->socket, $this->ip, $this->port)) {
             $errno = socket_last_error();
             $this->error(sprintf('Could not bind to address %s:%s [%s] %s', $this->ip, $this->port, $errno, socket_strerror($errno)));
-            throw new Exception('Could not start server.');
+            throw new \Exception('Could not start server.');
         }
 
         socket_listen($this->socket);
-        $this->daemon->on(Core_Daemon::ON_POSTEXECUTE, array($this, 'run'));
+        $this->daemon->on(Daemon::ON_POSTEXECUTE, array($this, 'run'));
     }
 
     /**
@@ -129,7 +135,7 @@ class Core_Plugin_Server implements Core_IPlugin
      * NOTE: At a minimum you should ensure that if $errors is not empty that you pass it along as the return value.
      * @return Array  Return array of error messages (Think stuff like "GD Library Extension Required" or "Cannot open /tmp for Writing") or an empty array
      */
-    public function check_environment(Array $errors = array()) {
+    public function check_environment(array $errors = array()) {
         if (!is_callable('socket_create'))
             $errors[] = 'Socket support is currently unavailable: You must add the php_sockets extension to your php.ini or recompile php with the --enable-sockets option set';
 
@@ -137,23 +143,23 @@ class Core_Plugin_Server implements Core_IPlugin
     }
 
     /**
-     * Add a Core_Lib_Command object to the command queue. Input from a client is evaluated against these commands
+     * Add a Command object to the command queue. Input from a client is evaluated against these commands
      * in the order they are added
      *
-     * @param Core_Lib_Command $command
+     * @param Command $command
      */
-    public function addCommand(Core_Lib_Command $command) {
+    public function addCommand(Command $command) {
         $this->commands[] = $command;
         return $this;
     }
 
     /**
-     * An alternative to addCommand - a simple factory for Core_Lib_Command objects.
+     * An alternative to addCommand - a simple factory for Command objects.
      * @param $regex
      * @param $callable
      */
     public function newCommand($regex, $callable) {
-        $cmd = new Core_Lib_Command();
+        $cmd = new Command();
         $cmd->regex = $regex;
         $cmd->callable = $callable;
         return $this->addCommand($cmd);
@@ -202,14 +208,14 @@ class Core_Plugin_Server implements Core_IPlugin
     private function connect() {
         $slot = $this->slot();
         if ($slot === null)
-            throw new Exception(sprintf('%s Failed - Maximum number of connections has been reached.', __METHOD__));
+            throw new \Exception(sprintf('%s Failed - Maximum number of connections has been reached.', __METHOD__));
 
         $this->debug("Creating New Connection");
 
-        $client = new stdClass();
+        $client = new \stdClass();
         $client->socket = socket_accept($this->socket);
         if (empty($client->socket))
-            throw new Exception(sprintf('%s Failed - socket_accept failed with error: %s', __METHOD__, socket_last_error()));
+            throw new \Exception(sprintf('%s Failed - socket_accept failed with error: %s', __METHOD__, socket_last_error()));
 
         socket_getpeername($client->socket, $client->ip);
 
@@ -229,7 +235,7 @@ class Core_Plugin_Server implements Core_IPlugin
         }));
     }
 
-    private function command($input, Array $args = array()) {
+    private function command($input, array $args = array()) {
         foreach($this->commands as $command)
             if($command->match($input, $args) && $command->exclusive)
                 break;
