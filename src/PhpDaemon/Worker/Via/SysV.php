@@ -3,6 +3,7 @@
 namespace Theintz\PhpDaemon\Worker\Via;
 
 use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\IPlugin;
 use Theintz\PhpDaemon\IWorkerVia;
 use Theintz\PhpDaemon\Worker\Call;
@@ -79,10 +80,10 @@ class SysV implements IWorkerVia, IPlugin {
             $this->setup_shm();
 
         if (!is_resource($this->queue))
-            throw new \Exception(__METHOD__ . " Failed. Could not attach message queue id {$this->mediator->guid}");
+            throw new Exception(__METHOD__ . " Failed. Could not attach message queue id {$this->mediator->guid}");
 
         if (!is_resource($this->shm))
-            throw new \Exception(__METHOD__ . " Failed. Could not address shared memory block {$this->mediator->guid}");
+            throw new Exception(__METHOD__ . " Failed. Could not address shared memory block {$this->mediator->guid}");
     }
 
     /**
@@ -124,7 +125,7 @@ class SysV implements IWorkerVia, IPlugin {
             );
 
             if (!shm_put_var($this->shm, self::HEADER_ADDRESS, $header))
-                throw new \Exception(__METHOD__ . " Failed. Could Not Read Header. If this problem persists, try manually cleaning your system's SysV Shared Memory allocations.\nYou can use built-in tools on the linux commandline or a helper script shipped with PHP Simple Daemon. ");
+                throw new Exception(__METHOD__ . " Failed. Could Not Read Header. If this problem persists, try manually cleaning your system's SysV Shared Memory allocations.\nYou can use built-in tools on the linux commandline or a helper script shipped with PHP Simple Daemon. ");
         }
 
         // Check memory allocation and warn the user if their malloc() is not actually applicable (eg they changed the malloc but used --recoverworkers)
@@ -177,10 +178,10 @@ class SysV implements IWorkerVia, IPlugin {
     public function malloc($bytes = null) {
         if ($bytes !== null) {
             if (!is_int($bytes))
-                throw new \Exception(__METHOD__ . " Failed. Could not set SHM allocation size. Expected Integer. Given: " . gettype($bytes));
+                throw new Exception(__METHOD__ . " Failed. Could not set SHM allocation size. Expected Integer. Given: " . gettype($bytes));
 
             if (is_resource($this->shm))
-                throw new \Exception(__METHOD__ . " Failed. Can Not Re-Allocate SHM Size. You will have to restart the daemon without the --recoverworkers option to resize.");
+                throw new Exception(__METHOD__ . " Failed. Can Not Re-Allocate SHM Size. You will have to restart the daemon without the --recoverworkers option to resize.");
 
             $this->memory_allocation = $bytes;
         }
@@ -285,7 +286,7 @@ class SysV implements IWorkerVia, IPlugin {
         } while(empty($call) && $this->error(null, $tries) && $tries++ < 3);
 
         if (!is_object($call))
-            throw new \Exception(__METHOD__ . " Failed. Could Not Decode Message: " . print_r($message, true));
+            throw new Exception(__METHOD__ . " Failed. Could Not Decode Message: " . print_r($message, true));
 
         if (!$this->memory_allocation_warning && $call->size > ($this->memory_allocation / 50)) {
             $this->memory_allocation_warning = true;

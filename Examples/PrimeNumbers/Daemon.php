@@ -3,6 +3,7 @@
 namespace Examples\PrimeNumbers;
 
 use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\Plugin\Ini;
 use Theintz\PhpDaemon\Worker\Via\SysV;
 
@@ -113,7 +114,7 @@ class PrimeDaemon extends Daemon
         // - In the Return handler, we are using the PrimeNumbers worker to determine the prime factors.
         $this->worker('GetFactors', function($integer)  {
             if (!is_integer($integer))
-                throw new \Exception('Invalid Input! Expected Integer. Given: ' . gettype($integer));
+                throw new Exception('Invalid Input! Expected Integer. Given: ' . gettype($integer));
 
             $factors = array();
             for ($i=2; $i<($integer/2); $i++)

@@ -2,6 +2,7 @@
 
 namespace Theintz\PhpDaemon\Worker;
 
+use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\IWorker;
 
 /**
@@ -35,7 +36,7 @@ final class ObjectMediator extends Mediator
 
     public function setObject($o) {
         if (!($o instanceof IWorker)) {
-            throw new \Exception(__METHOD__ . " Failed. Worker objects must implement IWorker");
+            throw new Exception(__METHOD__ . " Failed. Worker objects must implement IWorker");
         }
         $this->object = $o;
         $this->object->mediator = $this;
@@ -62,7 +63,7 @@ final class ObjectMediator extends Mediator
             return $cb;
         }
 
-        throw new \Exception("$method() is Not Callable.");
+        throw new Exception("$method() is Not Callable.");
     }
 
 

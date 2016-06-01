@@ -3,6 +3,7 @@
 namespace Theintz\PhpDaemon\Worker;
 
 use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\ITask;
 use Theintz\PhpDaemon\IWorkerVia;
 use Theintz\PhpDaemon\Lib\DebugShell;
@@ -856,7 +857,7 @@ abstract class Mediator implements ITask
      */
     public function __call($method, $args) {
         if (!in_array($method, $this->methods))
-            throw new \Exception(__METHOD__ . " Failed. Method `{$method}` is not callable.");
+            throw new Exception(__METHOD__ . " Failed. Method `{$method}` is not callable.");
 
         $this->call_count++;
         return $this->call(new Call($this->call_count, $method, $args));
@@ -1166,7 +1167,7 @@ abstract class Mediator implements ITask
      */
     public function retry(Call $call) {
         if (empty($call->method))
-            throw new \Exception(__METHOD__ . " Failed. A valid call struct is required.");
+            throw new Exception(__METHOD__ . " Failed. A valid call struct is required.");
 
         $this->log("Retrying Call {$call->id} To `{$call->method}`");
         $call->retry();
@@ -1201,7 +1202,7 @@ abstract class Mediator implements ITask
      */
     public function onTimeout($on_timeout) {
         if (!is_callable($on_timeout))
-            throw new \Exception(__METHOD__ . " Failed. Callback or Closure expected.");
+            throw new Exception(__METHOD__ . " Failed. Callback or Closure expected.");
 
         $this->on_timeout = $on_timeout;
     }
@@ -1217,7 +1218,7 @@ abstract class Mediator implements ITask
      */
     public function onReturn($on_return) {
         if (!is_callable($on_return))
-            throw new \Exception(__METHOD__ . " Failed. Callback or Closure expected.");
+            throw new Exception(__METHOD__ . " Failed. Callback or Closure expected.");
 
         $this->on_return = $on_return;
     }
@@ -1232,7 +1233,7 @@ abstract class Mediator implements ITask
      */
     public function timeout($timeout) {
         if (!is_numeric($timeout))
-            throw new \Exception(__METHOD__ . " Failed. Numeric value expected.");
+            throw new Exception(__METHOD__ . " Failed. Numeric value expected.");
 
         $this->timeout = $timeout;
     }
@@ -1254,7 +1255,7 @@ abstract class Mediator implements ITask
      */
     public function workers($workers) {
         if (!ctype_digit((string)$workers))
-            throw new \Exception(__METHOD__ . " Failed. Numeric value expected.");
+            throw new Exception(__METHOD__ . " Failed. Numeric value expected.");
 
         $this->workers = (int)$workers;
     }
@@ -1271,7 +1272,7 @@ abstract class Mediator implements ITask
      */
     public function auto_restart($restart) {
         if (!is_bool($restart))
-            throw new \Exception(__METHOD__ . " Failed. Boolean value expected.");
+            throw new Exception(__METHOD__ . " Failed. Boolean value expected.");
 
         $this->auto_restart = $restart;
     }

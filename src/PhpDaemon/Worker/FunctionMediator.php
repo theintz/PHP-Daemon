@@ -1,6 +1,9 @@
 <?php
 
 namespace Theintz\PhpDaemon\Worker;
+
+use Theintz\PhpDaemon\Exception;
+
 /**
  * Adapt a supplied function to the Worker Mediator class
  *
@@ -24,7 +27,7 @@ final class FunctionMediator extends Mediator
      */
     public function setFunction($f) {
         if (!is_callable($f)) {
-            throw new \Exception(__METHOD__ . " Failed. Supplied argument is not callable!");
+            throw new Exception(__METHOD__ . " Failed. Supplied argument is not callable!");
         }
         $this->function = $f;
         $this->methods = array('execute');
@@ -50,7 +53,7 @@ final class FunctionMediator extends Mediator
                 break;
 
             default:
-                throw new \Exception("$method() is Not Callable.");
+                throw new Exception("$method() is Not Callable.");
         }
     }
 

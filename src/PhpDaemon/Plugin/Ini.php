@@ -2,6 +2,7 @@
 
 namespace Theintz\PhpDaemon\Plugin;
 
+use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\IPlugin;
 
 /**
@@ -52,7 +53,7 @@ class Ini implements IPlugin, \ArrayAccess
                 $missing_sections[] = $section;
 
         if (count($missing_sections))
-            throw new \Exception(__METHOD__ . ' Failed: Seems the config file is missing required sections: ' . implode(',', $missing_sections));
+            throw new Exception(__METHOD__ . ' Failed: Seems the config file is missing required sections: ' . implode(',', $missing_sections));
     }
 
     /**
@@ -101,7 +102,7 @@ class Ini implements IPlugin, \ArrayAccess
         if (is_scalar($offset))
             $this->contents[$offset] = $value;
 
-        throw new \Exception('Could not set INI value: $offset must be a scalar');
+        throw new Exception('Could not set INI value: $offset must be a scalar');
     }
 
     /**

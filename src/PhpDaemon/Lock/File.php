@@ -3,6 +3,7 @@
 namespace Theintz\PhpDaemon\Lock;
 
 use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\IPlugin;
 
 /**
@@ -62,7 +63,7 @@ class File extends Lock implements IPlugin
         $lock = $this->check();
 
         if ($lock)
-            throw new \Exception('File::set Failed. Additional Lock Detected. PID: ' . $lock);
+            throw new Exception('File::set Failed. Additional Lock Detected. PID: ' . $lock);
 
         // The lock value will contain the process PID
         file_put_contents($this->filename, $this->pid);

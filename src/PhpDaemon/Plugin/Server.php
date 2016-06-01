@@ -3,6 +3,7 @@
 namespace Theintz\PhpDaemon\Plugin;
 
 use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\IPlugin;
 use Theintz\PhpDaemon\Lib\Command;
 
@@ -108,7 +109,7 @@ class Server implements IPlugin
         if (!socket_bind($this->socket, $this->ip, $this->port)) {
             $errno = socket_last_error();
             $this->error(sprintf('Could not bind to address %s:%s [%s] %s', $this->ip, $this->port, $errno, socket_strerror($errno)));
-            throw new \Exception('Could not start server.');
+            throw new Exception('Could not start server.');
         }
 
         socket_listen($this->socket);
@@ -208,14 +209,14 @@ class Server implements IPlugin
     private function connect() {
         $slot = $this->slot();
         if ($slot === null)
-            throw new \Exception(sprintf('%s Failed - Maximum number of connections has been reached.', __METHOD__));
+            throw new Exception(sprintf('%s Failed - Maximum number of connections has been reached.', __METHOD__));
 
         $this->debug("Creating New Connection");
 
         $client = new \stdClass();
         $client->socket = socket_accept($this->socket);
         if (empty($client->socket))
-            throw new \Exception(sprintf('%s Failed - socket_accept failed with error: %s', __METHOD__, socket_last_error()));
+            throw new Exception(sprintf('%s Failed - socket_accept failed with error: %s', __METHOD__, socket_last_error()));
 
         socket_getpeername($client->socket, $client->ip);
 

@@ -3,6 +3,7 @@
 namespace Theintz\PhpDaemon\Lib;
 
 use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\Exception;
 
 /**
  * Wrap a supplied object in a commandline debug shell. Calls to the objects public methods will be proxied to the shell
@@ -110,7 +111,7 @@ class DebugShell
 
     public function __construct($object) {
         if (!is_object($object))
-            throw new \Exception("DebugShell Failed: You must supply an object to be proxied.");
+            throw new Exception("DebugShell Failed: You must supply an object to be proxied.");
 
         $this->object = $object;
     }
@@ -284,7 +285,7 @@ class DebugShell
         $test = array_keys(current($parsers));
         $keys = array('regex', 'command', 'description', 'closure');
         if ($test != $keys)
-            throw new \Exception("Cannot Load Parser Queue: Invalid array format. Expected Keys: " . implode(', ', $test) . " Given Keys: " . implode(', ', $keys));
+            throw new Exception("Cannot Load Parser Queue: Invalid array format. Expected Keys: " . implode(', ', $test) . " Given Keys: " . implode(', ', $keys));
 
         $this->parsers = array_merge($this->parsers, $parsers);
     }

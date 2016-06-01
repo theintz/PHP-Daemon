@@ -2,6 +2,8 @@
 
 namespace Theintz\PhpDaemon\Worker;
 
+use Theintz\PhpDaemon\Exception;
+
 class Call
 {
 
@@ -142,7 +144,7 @@ class Call
     public function status($status, $microtime = null) {
         // You can restart a Call (back to status 0) but you can't decrement or arbitrarily set the status
         if ($status < $this->status && $status > 0)
-            throw new \Exception(__METHOD__ . " Failed: Cannot Rewind Status. Current Status: {$this->status} Given: {$status}");
+            throw new Exception(__METHOD__ . " Failed: Cannot Rewind Status. Current Status: {$this->status} Given: {$status}");
 
         if ($microtime === null)
             $microtime = microtime(true);

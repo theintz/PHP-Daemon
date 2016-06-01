@@ -2,6 +2,7 @@
 
 namespace Theintz\PhpDaemon\Lock;
 
+use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\IPlugin;
 use Theintz\PhpDaemon\Lib\Memcache;
 
@@ -39,7 +40,7 @@ class Memcached extends Lock implements IPlugin
 		$this->memcache->auto_retry(1);
 
 		if ($this->memcache->connect_all($this->memcache_servers) === false)
-			throw new \Exception('Memcached::setup failed: Memcached Connection Failed');
+			throw new Exception('Memcached::setup failed: Memcached Connection Failed');
 	}
 
 	public function teardown()
@@ -70,7 +71,7 @@ class Memcached extends Lock implements IPlugin
 	{
 		$lock = $this->check();
 		if ($lock)
-			throw new \Exception('Memcached::set Failed. Existing Lock Detected from PID ' . $lock);
+			throw new Exception('Memcached::set Failed. Existing Lock Detected from PID ' . $lock);
 
 		$timeout = Lock::$LOCK_TTL_PADDING_SECONDS + $this->ttl;
 		$this->memcache->set(Lock::$LOCK_UNIQUE_ID, $this->pid, false, $timeout);

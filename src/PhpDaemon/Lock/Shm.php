@@ -3,6 +3,7 @@
 namespace Theintz\PhpDaemon\Lock;
 
 use Theintz\PhpDaemon\Daemon;
+use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\IPlugin;
 
 /**
@@ -57,7 +58,7 @@ class Shm extends Lock implements IPlugin
 	{
 		$lock = $this->check();
 		if ($lock)
-			throw new \Exception('Shm::set Failed. Existing Lock Detected from PID ' . $lock['pid']);
+			throw new Exception('Shm::set Failed. Existing Lock Detected from PID ' . $lock['pid']);
 
 		shm_put_var($this->shm, self::ADDRESS, array('pid' => $this->pid, 'time' => time()));
 	}
