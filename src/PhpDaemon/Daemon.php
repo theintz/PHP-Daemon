@@ -981,7 +981,7 @@ abstract class Daemon
      * Take File for instance.  The only difference is that you cannot magically load it using the alias
      * 'file' alone. The Plugin loader would not know to look for the file in the Lock directory. In these instances
      * the prefix is necessary.
-     * @example $this->plugin('File'); // Instantiated at $this->File
+     * @example $this->plugin('Lock\\File'); // Instantiated at $this->File
      *
      * @param string $alias
      * @param IPlugin|null $instance
@@ -996,14 +996,14 @@ abstract class Daemon
             // This if wouldn't be necessary if /Lock lived inside /Plugin.
             // Now that Locks are plugins in every other way, maybe it should be moved. OTOH, do we really need 4
             // levels of directory depth in a project with like 10 files...?
-            if (substr(strtolower($alias), 0, 5) == 'lock_')
-                $class = '' . ucfirst($alias);
+            if (substr(strtolower($alias), 0, 4) == 'lock')
+                $class = 'Theintz\\PhpDaemon\\' . ucfirst($alias);
             else
-                $class = 'Plugin\\' . ucfirst($alias);
+                $class = 'Theintz\\PhpDaemon\\Plugin\\' . ucfirst($alias);
 
             if (class_exists($class, true)) {
                 $interfaces = class_implements($class, true);
-                if (is_array($interfaces) && isset($interfaces['IPlugin'])) {
+                if (is_array($interfaces) && isset($interfaces[IPlugin::class])) {
                     $instance = new $class($this->getInstance());
                 }
             }

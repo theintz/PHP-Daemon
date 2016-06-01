@@ -13,7 +13,7 @@ class ParallelTasks extends Daemon
      */
 	protected function setup_plugins()
 	{
-        $this->plugin('File');
+        $this->plugin('Lock\\File');
 	}
 
 	/**
