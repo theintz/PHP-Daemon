@@ -12,9 +12,4 @@ Clean IPC
 * Easily remove errant Semaphores, Shared Memory blocks and Inter-Process messages
 * Often during development, crashed or killed daemons will leave these resources behind that have to be manually cleaned
 
-Everything Else
-* Scripts that we've used to easily start a daemon with various commandline options
-* Scripts to View and Kill daemon processes
-
-
 

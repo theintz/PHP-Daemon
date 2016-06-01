@@ -287,8 +287,8 @@ abstract class Daemon
         if (function_exists('pcntl_fork') == false)
             $errors[] = "The PCNTL Extension is not installed";
 
-        if (version_compare(PHP_VERSION, '5.3.0') < 0)
-            $errors[] = "PHP 5.3 or higher is required";
+        if (version_compare(PHP_VERSION, '5.5.0') < 0)
+            $errors[] = "PHP 5.5 or higher is required";
 
         foreach ($this->plugins as $plugin)
             foreach ($this->{$plugin}->check_environment() as $error)
@@ -977,12 +977,6 @@ abstract class Daemon
      * exactly like plugins in this respect). And both must be unique from any other instance or class vars used in
      * Daemon or in your application superclass.
      *
-     * Note: The Lock objects in Core/Lock are also Plugins and can be loaded in nearly the same way.
-     * Take File for instance.  The only difference is that you cannot magically load it using the alias
-     * 'file' alone. The Plugin loader would not know to look for the file in the Lock directory. In these instances
-     * the prefix is necessary.
-     * @example $this->plugin('Lock\\File'); // Instantiated at $this->File
-     *
      * @param string $alias
      * @param IPlugin|null $instance
      * @return IPlugin Returns an instance of the plugin
@@ -993,13 +987,7 @@ abstract class Daemon
         $this->check_alias($alias);
 
         if ($instance === null) {
-            // This if wouldn't be necessary if /Lock lived inside /Plugin.
-            // Now that Locks are plugins in every other way, maybe it should be moved. OTOH, do we really need 4
-            // levels of directory depth in a project with like 10 files...?
-            if (substr(strtolower($alias), 0, 4) == 'lock')
-                $class = 'Theintz\\PhpDaemon\\' . ucfirst($alias);
-            else
-                $class = 'Theintz\\PhpDaemon\\Plugin\\' . ucfirst($alias);
+            $class = 'Theintz\\PhpDaemon\\Plugin\\' . ucfirst($alias);
 
             if (class_exists($class, true)) {
                 $interfaces = class_implements($class, true);
