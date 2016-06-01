@@ -370,6 +370,7 @@ abstract class Daemon
                 $e->getMessage(), $e->getFile(), $e->getLine(), PHP_EOL, $e->getTraceAsString()));
         }
 
+        // TODO: we may have to take out this line, it caused issues in v2.0. as it was moved behind the dispatch() call above, it may however be fine
         $this->callbacks = array();
 
         if ($this->is('parent') && $this->get('pid_file') && file_exists($this->get('pid_file')) && file_get_contents($this->get('pid_file')) == $this->pid)
@@ -393,7 +394,7 @@ abstract class Daemon
     {
         $deprecated = array('shutdown', 'verbose', 'is_daemon', 'filename');
         if (in_array($method, $deprecated)) {
-          throw new Exception("Deprecated method call: $method(). Update your code to use the v2.1 get(), set() and is() methods.");
+            throw new Exception("Deprecated method call: $method(). Update your code to use the v2.1 get(), set() and is() methods.");
         }
 
         $accessors = array('loop_interval', 'pid');
@@ -749,7 +750,7 @@ abstract class Daemon
      * @param string $options    An options string to use in place of whatever options were present when the daemon was started.
      * @return string
      */
-    private function command($options = false)
+    protected function command($options = false)
     {
         $command = 'php ' . $this->get('filename');
 
@@ -1252,7 +1253,7 @@ abstract class Daemon
 
         $priority = -1;
         if ($set_value >= 5.0 || $set_value <= 0.0)
-          $priority = 0;
+            $priority = 0;
 
         if ($priority == pcntl_getpriority())
             return;
