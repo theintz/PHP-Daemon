@@ -15,9 +15,6 @@ Create solid, long-running PHP daemon processes by extending the Core_Daemon cla
 * Investigate updating the minimum version to PHP5.4. 
 * More Details Here https://github.com/shaneharter/PHP-Daemon/wiki/Version-2.2
 
-#### Daemon Monitoring 
-* Over the last few years I've built and deployed many daemons based on this library as well as cron jobs of all sorts. Recently I launched https://cronitor.io -- a dead simple cron (and daemon!) monitoring service. With one line of code you can integrate Cronitor into your daemon and get email/sms alerts if anything goes wrong.
-
 #### [NEW] Version 2.1 Released!
 * After a 9 month beta period, the code that was in the branch `feature_abstract_ipc` has been merged into master as v2.1
 * Version 2.0 available in the v2.0 tag.
@@ -26,10 +23,6 @@ Create solid, long-running PHP daemon processes by extending the Core_Daemon cla
   * Improved, simpler worker debug shell with new, powerful commands and easier integration of custom breakpoints into your own worker code. 
   * Centralize all the process forking, reaping and management code spread around the `Core_Daemon` and `Core_Worker_Mediator` classes into a simple ProcessManager plugin. 
   * Dozens of other bug fixes and improvements towards simpler, clearer code in the core Daemon and Mediator classes. 
-
-#### Support & Consulting
-* Commercial support & consulting is available, including on-site support in the San Francisco Bay Area.
-* Contact me through GitHub for more details, including no-cost consultation. 
 
 ##Notable Features: 
 
@@ -112,17 +105,11 @@ You can run a '-H' help command when you run the Daemon. It will dump a help men
 ```
 Examples\PrimeNumbers\Daemon
 USAGE:
- # run.php -H | -i | -I TEMPLATE_NAME [--install] | [-d] [-p PID_FILE] [--recoverworkers] [--debugworkers]
+ # run.php -H | -i | [-d] [-p PID_FILE] [--recoverworkers] [--debugworkers]
  
 OPTIONS:
  -H Shows this help
  -i Print any daemon install instructions to the screen
- -I Create init/config script
-    You must pass in a name of a template from the /Templates directory
-    OPTIONS:
-     --install
-       Install the script to /etc/init.d. Otherwise just output the script to stdout.
-
  -d Daemon, detach and run in the background
  -p PID_FILE File to write process ID out to
 
