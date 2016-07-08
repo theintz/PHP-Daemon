@@ -123,7 +123,7 @@ function daemon_shutdown_function()
     	case E_CORE_WARNING:
     	case E_COMPILE_ERROR:
 
-			//daemon_error($error['type'], $error['message'], $error['file'], $error['line']);
+        daemon_error($error['type'], $error['message'], $error['file'], $error['line']);
     }
 }
 error_reporting(E_ALL);
