@@ -166,7 +166,7 @@ abstract class Daemon
      * It will be called as part of the built-in init() method.
      * Any exceptions thrown from setup() will be logged as Fatal Errors and result in the daemon shutting down.
      * @return void
-     * @throws Exception
+     * @throws \Exception
      */
     abstract protected function setup();
 
@@ -176,7 +176,7 @@ abstract class Daemon
      * Any exceptions thrown from execute() will be logged as Fatal Errors and result in the daemon attempting to restart or shut down.
      *
      * @return void
-     * @throws Exception
+     * @throws \Exception
      */
     abstract protected function execute();
 
@@ -266,7 +266,7 @@ abstract class Daemon
 
         if (count($errors)) {
             $errors = implode("\n  ", $errors);
-            throw new \Exception("Checking Dependencies... Failed:\n  $errors");
+            throw new Exception("Checking Dependencies... Failed:\n  $errors");
         }
     }
 
@@ -338,7 +338,7 @@ abstract class Daemon
             return call_user_func_array(array($this, $method), array());
         }
 
-        throw new \Exception("Invalid Method Call '$method'");
+        throw new Exception("Invalid Method Call '$method'");
     }
 
     /**
@@ -380,10 +380,10 @@ abstract class Daemon
     public function on($event, $callback, $throttle = null)
     {
         if (!is_scalar($event))
-            throw new \Exception(__METHOD__ . ' Failed. Event type must be Scalar. Given: ' . gettype($event));
+            throw new Exception(__METHOD__ . ' Failed. Event type must be Scalar. Given: ' . gettype($event));
 
         if (!is_callable($callback))
-            throw new \Exception(__METHOD__ . ' Failed. Second Argument Must be Callable.');
+            throw new Exception(__METHOD__ . ' Failed. Second Argument Must be Callable.');
 
         if (!isset($this->callbacks[$event]))
             $this->callbacks[$event] = array();
@@ -1008,7 +1008,7 @@ abstract class Daemon
                 }
 
             } else {
-                throw new \Exception(__METHOD__ . ' Failed. Could not set loop interval. Number Expected. Given: ' . $set_value);
+                throw new Exception(__METHOD__ . ' Failed. Could not set loop interval. Number Expected. Given: ' . $set_value);
             }
         }
 
@@ -1026,7 +1026,7 @@ abstract class Daemon
             if (is_integer($set_value))
                 $this->pid = $set_value;
             else
-                throw new \Exception(__METHOD__ . ' Failed. Could not set pid. Integer Expected. Given: ' . $set_value);
+                throw new Exception(__METHOD__ . ' Failed. Could not set pid. Integer Expected. Given: ' . $set_value);
 
             if ($this->is_parent)
                 $this->parent_pid = $set_value;
