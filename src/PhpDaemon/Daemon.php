@@ -2,11 +2,11 @@
 
 namespace Theintz\PhpDaemon;
 
-declare(ticks = 5);
+declare(ticks = 100);
 
 /**
  * Daemon Base Class - Extend this to build daemons.
- * @uses PHP 5.3 or Higher
+ * @uses PHP 5.5 or Higher
  * @author Shane Harter
  * @link https://github.com/shaneharter/PHP-Daemon
  * @see https://github.com/shaneharter/PHP-Daemon/wiki/Daemon-Startup-Order-Explained
@@ -207,7 +207,7 @@ abstract class Daemon
 
         try
         {
-            $o = new static;
+            $o = new static();
             $o->check_environment();
             $o->init();
         }
@@ -261,8 +261,8 @@ abstract class Daemon
         if (function_exists('pcntl_fork') == false)
             $errors[] = "The PCNTL Extension is not installed";
 
-        if (version_compare(PHP_VERSION, '5.3.0') < 0)
-            $errors[] = "PHP 5.3 or higher is required";
+        if (version_compare(PHP_VERSION, '5.5.0') < 0)
+            $errors[] = "PHP 5.5 or higher is required";
 
         if (count($errors)) {
             $errors = implode("\n  ", $errors);
@@ -597,7 +597,7 @@ abstract class Daemon
      * @param string $options    An options string to use in place of whatever options were present when the daemon was started.
      * @return string
      */
-    private function getFilename($options = false)
+    protected function getFilename($options = false)
     {
         $command = 'php ' . self::$filename;
 
@@ -730,13 +730,16 @@ abstract class Daemon
             pcntl_sigprocmask(SIG_UNBLOCK, array(SIGCHLD));
         } else {
             // There is no time to sleep between intervals -- but we still need to give the CPU a break
-            // Sleep for 1/100 a second.
-            usleep(10000);
+            // Sleep for 0.1 ms
+            usleep(100);
             if ($this->loop_interval > 0)
                 $this->error('Run Loop Taking Too Long. Duration: ' . number_format($stats['duration'], 3) . ' Interval: ' . $this->loop_interval);
         }
 
-        $this->stats[] = $stats;
+        // we only want to sample 0.1% from the stats, this avoids a giant memory leak
+        if (mt_rand(1, 1000) == 1) {
+            $this->stats[] = $stats;
+        }
         return $stats;
     }
 
