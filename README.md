@@ -5,7 +5,7 @@ Create solid, long-running PHP daemon processes by extending the Core_Daemon cla
 > Note: For many reasons PHP is not an optimal language choice for creating servers or daemons. I created this library so if you *must* use PHP for these things, you can do it with ease and produce great results. But if you have the choice, Java, Python, Ruby, etc, are all better suited for this. 
 
 #### Requires: ###
-* PHP 5.3 or Higher
+* PHP 5.5 or Higher
 * A POSIX compatible operating system (Linux, OSX, BSD)
 * POSIX and PCNTL Extensions for PHP
  
@@ -19,7 +19,6 @@ Most daemon applications will either use a blocking API library (libevent, socke
 
   You can implement a clock with 1 line of code or leave it out for an event loop built on async or blocking IO.
   
-
 * ###True parallel processing in PHP 
 In a few lines of code you can create asynchronous background processes that let you keep your daemon process light and responsive. After you pass an object to the Worker API, you can call its methods normally. The API silently intercepts your method call and passes it to the object running in the background process. The call returns as soon as the Worker API intercepts it, and your daemon continues normally.  When the background process completes the method call any `onReturn` callbacks you set are fired. And if things go wrong you've got the ability to enforce a timeout and easily retry the call. 
 

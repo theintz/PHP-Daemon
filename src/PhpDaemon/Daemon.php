@@ -1,5 +1,7 @@
 <?php
 
+namespace Theintz\PhpDaemon;
+
 declare(ticks = 5);
 
 /**
@@ -11,7 +13,7 @@ declare(ticks = 5);
  * @singleton
  * @abstract
  */
-abstract class Core_Daemon
+abstract class Daemon
 {
     /**
      * The application will attempt to restart itself it encounters a recoverable fatal error after it's been running
@@ -209,7 +211,7 @@ abstract class Core_Daemon
             $o->check_environment();
             $o->init();
         }
-        catch (Exception $e)
+        catch (\Exception $e)
         {
             $o->fatal_error($e->getMessage());
         }
@@ -264,7 +266,7 @@ abstract class Core_Daemon
 
         if (count($errors)) {
             $errors = implode("\n  ", $errors);
-            throw new Exception("Checking Dependencies... Failed:\n  $errors");
+            throw new \Exception("Checking Dependencies... Failed:\n  $errors");
         }
     }
 
@@ -303,7 +305,7 @@ abstract class Core_Daemon
         {
             $this->dispatch(array(self::ON_SHUTDOWN));
         }
-        catch (Exception $e)
+        catch (\Exception $e)
         {
             $this->fatal_error(sprintf('Exception Thrown in Shutdown: %s [file] %s [line] %s%s%s',
                 $e->getMessage(), $e->getFile(), $e->getLine(), PHP_EOL, $e->getTraceAsString()));
@@ -336,7 +338,7 @@ abstract class Core_Daemon
             return call_user_func_array(array($this, $method), array());
         }
 
-        throw new Exception("Invalid Method Call '$method'");
+        throw new \Exception("Invalid Method Call '$method'");
     }
 
     /**
@@ -357,7 +359,7 @@ abstract class Core_Daemon
                 $this->timer();
             }
         }
-        catch (Exception $e)
+        catch (\Exception $e)
         {
             $this->fatal_error(sprintf('Uncaught Exception in Event Loop: %s [file] %s [line] %s%s%s',
                 $e->getMessage(), $e->getFile(), $e->getLine(), PHP_EOL, $e->getTraceAsString()));
@@ -378,10 +380,10 @@ abstract class Core_Daemon
     public function on($event, $callback, $throttle = null)
     {
         if (!is_scalar($event))
-            throw new Exception(__METHOD__ . ' Failed. Event type must be Scalar. Given: ' . gettype($event));
+            throw new \Exception(__METHOD__ . ' Failed. Event type must be Scalar. Given: ' . gettype($event));
 
         if (!is_callable($callback))
-            throw new Exception(__METHOD__ . ' Failed. Second Argument Must be Callable.');
+            throw new \Exception(__METHOD__ . ' Failed. Second Argument Must be Callable.');
 
         if (!isset($this->callbacks[$event]))
             $this->callbacks[$event] = array();
@@ -713,7 +715,7 @@ abstract class Core_Daemon
 
         // If we have idle time, do any housekeeping tasks
         if ($is_idle()) {
-            $this->dispatch(array(Core_Daemon::ON_IDLE), array($is_idle));
+            $this->dispatch(array(self::ON_IDLE), array($is_idle));
         }
 
         $stats = array();
@@ -1003,7 +1005,7 @@ abstract class Core_Daemon
                 }
 
             } else {
-                throw new Exception(__METHOD__ . ' Failed. Could not set loop interval. Number Expected. Given: ' . $set_value);
+                throw new \Exception(__METHOD__ . ' Failed. Could not set loop interval. Number Expected. Given: ' . $set_value);
             }
         }
 
@@ -1021,7 +1023,7 @@ abstract class Core_Daemon
             if (is_integer($set_value))
                 $this->pid = $set_value;
             else
-                throw new Exception(__METHOD__ . ' Failed. Could not set pid. Integer Expected. Given: ' . $set_value);
+                throw new \Exception(__METHOD__ . ' Failed. Could not set pid. Integer Expected. Given: ' . $set_value);
 
             if ($this->is_parent)
                 $this->parent_pid = $set_value;
