@@ -130,7 +130,7 @@ class SysV implements IWorkerVia, IPlugin {
 
         // Check memory allocation and warn the user if their malloc() is not actually applicable (eg they changed the malloc but used --recoverworkers)
         $header = shm_get_var($this->shm, self::HEADER_ADDRESS);
-        if ($header['memory_allocation'] <> $this->memory_allocation)
+        if ($header['memory_allocation'] != $this->memory_allocation)
             $this->mediator->log('Warning: Seems you\'ve using --recoverworkers after making a change to the worker malloc memory limit. To apply this change you will have to restart the daemon without the --recoverworkers option.' .
               PHP_EOL . 'The existing memory_limit is ' . $header['memory_allocation'] . ' bytes.');
 

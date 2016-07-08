@@ -66,6 +66,7 @@ class ProcessManager implements IPlugin
         if (!$this->daemon->is('parent'))
             return;
 
+        // TODO: possible infinite loop here, see https://github.com/shaneharter/PHP-Daemon/pull/76
         while($this->count() > 0) {
             foreach($this->processes() as $pid => $process)
                 if ($message = $process->stop())

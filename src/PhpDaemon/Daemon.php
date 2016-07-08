@@ -6,7 +6,7 @@ use Theintz\PhpDaemon\Worker\FunctionMediator;
 use Theintz\PhpDaemon\Worker\ObjectMediator;
 use Theintz\PhpDaemon\Worker\Via\SysV;
 
-declare(ticks = 5);
+declare(ticks = 100);
 
 /**
  * Daemon Base Class - Extend this to build daemons.
@@ -370,6 +370,7 @@ abstract class Daemon
                 $e->getMessage(), $e->getFile(), $e->getLine(), PHP_EOL, $e->getTraceAsString()));
         }
 
+        // TODO: we may have to take out this line, it caused issues in v2.0. as it was moved behind the dispatch() call above, it may however be fine
         $this->callbacks = array();
 
         if ($this->is('parent') && $this->get('pid_file') && file_exists($this->get('pid_file')) && file_get_contents($this->get('pid_file')) == $this->pid)
@@ -393,7 +394,7 @@ abstract class Daemon
     {
         $deprecated = array('shutdown', 'verbose', 'is_daemon', 'filename');
         if (in_array($method, $deprecated)) {
-          throw new Exception("Deprecated method call: $method(). Update your code to use the v2.1 get(), set() and is() methods.");
+            throw new Exception("Deprecated method call: $method(). Update your code to use the v2.1 get(), set() and is() methods.");
         }
 
         $accessors = array('loop_interval', 'pid');
@@ -749,7 +750,7 @@ abstract class Daemon
      * @param string $options    An options string to use in place of whatever options were present when the daemon was started.
      * @return string
      */
-    private function command($options = false)
+    protected function command($options = false)
     {
         $command = 'php ' . $this->get('filename');
 
@@ -891,13 +892,16 @@ abstract class Daemon
             pcntl_sigprocmask(SIG_UNBLOCK, array(SIGCHLD));
         } else {
             // There is no time to sleep between intervals -- but we still need to give the CPU a break
-            // Sleep for 1/100 a second.
-            usleep(10000);
+            // Sleep for 1/10000 a second.
+            usleep(100);
             if ($this->loop_interval > 0)
                 $this->error('Run Loop Taking Too Long. Duration: ' . number_format($stats['duration'], 3) . ' Interval: ' . $this->loop_interval);
         }
 
-        $this->stats[] = $stats;
+        // we only want to sample 0.1% from the stats, this avoids a giant memory leak
+        if (rand(1, 1000) == 1) {
+            $this->stats[] = $stats;
+        }
         return $stats;
     }
 
@@ -1237,7 +1241,7 @@ abstract class Daemon
 
         $priority = -1;
         if ($set_value >= 5.0 || $set_value <= 0.0)
-          $priority = 0;
+            $priority = 0;
 
         if ($priority == pcntl_getpriority())
             return;
