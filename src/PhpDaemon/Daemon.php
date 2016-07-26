@@ -64,7 +64,7 @@ abstract class Daemon
      *
      * Note: If you want to take responsibility for dispatching the ON_IDLE event in your application, just set
      *       this to 0 and dispatch the event periodically, eg:
-     *       $this->dispatch(array(self::ON_IDLE));
+     *       $this->dispatch([self::ON_IDLE]);
      *
      *
      *
@@ -110,7 +110,7 @@ abstract class Daemon
 
     /**
      * An optional filename the PID was written to at startup
-     * @see Core_Daemon::pid()
+     * @see Daemon::pid()
      * @example Pass CLI argument: -p pidfile
      * @var string
      */
@@ -118,7 +118,7 @@ abstract class Daemon
 
     /**
      * Is this process running as a Daemon?
-     * @see Core_Daemon::is_daemon()
+     * @see Daemon::is_daemon()
      * @example Pass CLI argument: -d
      * @var boolean
      */
@@ -126,7 +126,7 @@ abstract class Daemon
 
     /**
      * Is your application shutting down at the end of the current event loop iteration?
-     * @see Core_Daemon::shutdown()
+     * @see Daemon::shutdown()
      * @var boolean
      */
     private $shutdown = false;
@@ -136,25 +136,25 @@ abstract class Daemon
      * Note: This was originally attached to a commandline option (-v) but it's not implicit based on whether the
      *       application is being run inside your shell (verbose=true) or as a daemon (verbose=false)
      *
-     * @see Core_Daemon::verbose()
+     * @see Daemon::verbose()
      * @var boolean
      */
     private $verbose = false;
 
     /**
      * Map of callbacks that have been registered using on()
-     * @var Array
+     * @var array
      */
-    private $callbacks = array();
+    private $callbacks = [];
 
     /**
      * Runtime statistics for a recent window of execution
-     * @var Array
+     * @var array
      */
-    private $stats = array();
+    private $stats = [];
 
     /**
-     * This has to be set using the Core_Daemon::setFilename() method before you call getInstance() the first time.
+     * This has to be set using the Daemon::setFilename() method before you call getInstance() the first time.
      * It's used as part of the auto-restart mechanism.
      * @todo Is there a way to get the currently executed filename from within an include?
      * @var string
@@ -197,8 +197,8 @@ abstract class Daemon
 
 
     /**
-     * Return an instance of the Core_Daemon singleton
-     * @return Core_Daemon
+     * Return an instance of the Daemon singleton
+     * @return self
      */
     public static function getInstance()
     {
@@ -213,7 +213,7 @@ abstract class Daemon
         }
         catch (\Exception $e)
         {
-            $o->fatal_error($e->getMessage());
+            $o->fatal_error($e->getMessage(), 'FATAL');
         }
 
         return $o;
@@ -240,11 +240,11 @@ abstract class Daemon
      * Ensure that essential runtime conditions are met.
      * To easily add rules to this, overload this method, build yourself an array of error messages,
      * and then call parent::check_environment($my_errors)
-     * @param Array $errors
+     * @param array $errors
      * @return void
      * @throws Exception
      */
-    protected function check_environment(Array $errors = array())
+    protected function check_environment(array $errors = [])
     {
         if (empty(self::$filename))
             $errors[] = 'Filename is Missing: setFilename must be called before an instance can be initialized';
@@ -283,10 +283,10 @@ abstract class Daemon
         // Our current use of the ON_INIT event is in the Lock provider plugins -- so we can prevent a duplicate daemon
         // process from starting-up. In that case, we want to do that check as early as possible. To accomplish that,
         // the plugin setup has to happen first -- to ensure the Lock provider plugins have a chance to load.
-        $this->dispatch(array(self::ON_INIT));
+        $this->dispatch([self::ON_INIT]);
 
         // Queue any housekeeping tasks we want performed periodically
-        $this->on(self::ON_IDLE, array($this, 'stats_trim'), (empty($this->loop_interval)) ? null : ($this->loop_interval * 50)); // Throttle to about once every 50 iterations
+        $this->on(self::ON_IDLE, [$this, 'stats_trim'], (empty($this->loop_interval)) ? null : ($this->loop_interval * 50)); // Throttle to about once every 50 iterations
 
         $this->setup();
         if (!$this->daemon)
@@ -303,7 +303,7 @@ abstract class Daemon
     {
         try
         {
-            $this->dispatch(array(self::ON_SHUTDOWN));
+            $this->dispatch([self::ON_SHUTDOWN]);
         }
         catch (\Exception $e)
         {
@@ -330,12 +330,12 @@ abstract class Daemon
      */
     public function __call($method, $args)
     {
-        $accessors = array('loop_interval', 'is_parent', 'verbose', 'pid', 'shutdown');
+        $accessors = ['loop_interval', 'is_parent', 'verbose', 'pid', 'shutdown'];
         if (in_array($method, $accessors)) {
             if ($args)
                 trigger_error("The '$method' accessor can not be used as a setter in this context. Supplied arguments ignored.", E_USER_WARNING);
 
-            return call_user_func_array(array($this, $method), array());
+            return call_user_func_array(array($this, $method), []);
         }
 
         throw new Exception("Invalid Method Call '$method'");
@@ -353,9 +353,9 @@ abstract class Daemon
             {
                 $this->timer(true);
                 $this->auto_restart();
-                $this->dispatch(array(self::ON_PREEXECUTE));
+                $this->dispatch([self::ON_PREEXECUTE]);
                 $this->execute();
-                $this->dispatch(array(self::ON_POSTEXECUTE));
+                $this->dispatch([self::ON_POSTEXECUTE]);
                 $this->timer();
             }
         }
@@ -386,11 +386,11 @@ abstract class Daemon
             throw new Exception(__METHOD__ . ' Failed. Second Argument Must be Callable.');
 
         if (!isset($this->callbacks[$event]))
-            $this->callbacks[$event] = array();
+            $this->callbacks[$event] = [];
 
-        $this->callbacks[$event][] = array('callback' => $callback, 'throttle' => $throttle, 'call_at' => 0);
+        $this->callbacks[$event][] = ['callback' => $callback, 'throttle' => $throttle, 'call_at' => 0];
         end($this->callbacks[$event]);
-        return array($event, key($this->callbacks[$event]));
+        return [$event, key($this->callbacks[$event])];
     }
 
     /**
@@ -398,7 +398,7 @@ abstract class Daemon
      * @param array $event  Should be the array returned when you called on()
      * @return callback|closure|null returns the registered event handler assuming $event is valid
      */
-    public function off(Array $event)
+    public function off(array $event)
     {
         if (isset($event[0]) && isset($event[1])) {
             $cb = $this->callbacks[$event[0]][$event[1]];
@@ -413,9 +413,9 @@ abstract class Daemon
      * or you can pass it an array with the event type and all registered callbacks will be called.
      * @param array $event  Either an array with a single item (an event type) or 2
      *                      items (an event type, and a callback ID for that event type)
-     * @param array $args   Array of arguments passed to the event listener
+     * @param array $args   array of arguments passed to the event listener
      */
-    protected function dispatch(Array $event, Array $args = array())
+    protected function dispatch(array $event, array $args = [])
     {
         if (!isset($event[0]) || !isset($this->callbacks[$event[0]]))
             return;
@@ -441,7 +441,7 @@ abstract class Daemon
     }
 
     /**
-     * Log the $message to the filename returned by Core_Daemon::log_file() and/or optionally print to stdout.
+     * Log the $message to the filename returned by Daemon::log_file() and/or optionally print to stdout.
      * Multi-Line messages will be handled nicely.
      *
      * Note: Your log_file() method will be called every 5 minutes (at even increments, eg 00:05, 00:10, 00:15, etc) to
@@ -500,7 +500,7 @@ abstract class Daemon
      * Log the provided $message and dispatch an ON_ERROR event.
      *
      * The library has no concept of a runtime error. If your application doesn't attach any ON_ERROR listeners, there
-     * is literally no difference between using this and just passing the message to Core_Daemon::log().
+     * is literally no difference between using this and just passing the message to Daemon::log().
      *
      * @param $message
      * @param string $label
@@ -508,7 +508,7 @@ abstract class Daemon
     public function error($message, $label = '')
     {
         $this->log($message, $label);
-        $this->dispatch(array(self::ON_ERROR), array($message));
+        $this->dispatch([self::ON_ERROR], [$message]);
     }
 
     /**
@@ -542,7 +542,7 @@ abstract class Daemon
      */
     public function signal($signal)
     {
-        $this->dispatch(array(self::ON_SIGNAL), array($signal));
+        $this->dispatch([self::ON_SIGNAL], [$signal]);
         switch ($signal)
         {
             case SIGUSR1:
@@ -572,23 +572,23 @@ abstract class Daemon
      */
     private function register_signal_handlers()
     {
-        $signals = array(
-            // Handled by Core_Daemon:
+        $signals = [
+            // Handled by Daemon:
             SIGTERM, SIGINT, SIGUSR1, SIGHUP,
 
-            // Ignored by Core_Daemon -- register callback ON_SIGNAL to listen for them.
+            // Ignored by Daemon -- register callback ON_SIGNAL to listen for them.
             // Some of these are duplicated/aliased, listed here for completeness
             SIGUSR2, SIGCONT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGIOT, SIGBUS, SIGFPE, SIGSEGV, SIGPIPE, SIGALRM,
             SIGCONT, SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ, SIGVTALRM, SIGPROF,
             SIGWINCH, SIGIO, SIGSYS, SIGBABY, SIGCHLD
-        );
+        ];
 
         if (defined('SIGPOLL'))     $signals[] = SIGPOLL;
         if (defined('SIGPWR'))      $signals[] = SIGPWR;
         if (defined('SIGSTKFLT'))   $signals[] = SIGSTKFLT;
 
         foreach(array_unique($signals) as $signal) {
-            pcntl_signal($signal, array($this, 'signal'));
+            pcntl_signal($signal, [$this, 'signal']);
         }
     }
 
@@ -621,7 +621,7 @@ abstract class Daemon
      * @example $ kill -10 [pid]
      * @return void
      */
-    private function dump()
+    protected function dump()
     {
         $pretty_memory = function($bytes) {
             $kb = 1024; $mb = $kb * 1024; $gb = $mb * 1024;
@@ -656,7 +656,7 @@ abstract class Daemon
             return ($bool ? 'Yes' : 'No');
         };
 
-        $out = array();
+        $out = [];
         $out[] = "---------------------------------------------------------------------------------------------------";
         $out[] = "Application Runtime Statistics";
         $out[] = "---------------------------------------------------------------------------------------------------";
@@ -715,19 +715,19 @@ abstract class Daemon
 
         // If we have idle time, do any housekeeping tasks
         if ($is_idle()) {
-            $this->dispatch(array(self::ON_IDLE), array($is_idle));
+            $this->dispatch([self::ON_IDLE], [$is_idle]);
         }
 
-        $stats = array();
+        $stats = [];
         $stats['duration']  = microtime(true) - $start_time;
         $stats['idle']      = $this->loop_interval - $stats['duration'];
 
         // Suppress child signals during sleep to stop exiting forks/workers from interrupting the timer.
         // Note: SIGCONT (-18) signals are not suppressed and can be used to "wake up" the daemon.
         if ($stats['idle'] > 0) {
-            pcntl_sigprocmask(SIG_BLOCK, array(SIGCHLD));
+            pcntl_sigprocmask(SIG_BLOCK, [SIGCHLD]);
             usleep($stats['idle'] * 1000000);
-            pcntl_sigprocmask(SIG_UNBLOCK, array(SIGCHLD));
+            pcntl_sigprocmask(SIG_UNBLOCK, [SIGCHLD]);
         } else {
             // There is no time to sleep between intervals -- but we still need to give the CPU a break
             // Sleep for 0.1 ms
@@ -771,7 +771,7 @@ abstract class Daemon
 
         $this->shutdown = true;
         $this->log('Restart Happening Now...');
-        $this->callbacks = array();
+        $this->callbacks = [];
 
         // Close the resource handles to prevent this process from hanging on the exec() output.
         if (is_resource(STDOUT)) fclose(STDOUT);
@@ -824,7 +824,7 @@ abstract class Daemon
      */
     protected function show_help($msg = '')
     {
-        $out = array('');
+        $out = [''];
 
         if ($msg) {
             $out[] =  '';
@@ -886,7 +886,7 @@ abstract class Daemon
      * Return a list containing the mean duration and idle time of the daemons event loop, ignoring the longest and shortest 5%
      * Note: Stats data is trimmed periodically and is not likely to have more than 200 rows.
      * @param int $last  Limit the working set to the last n iteration
-     * @return Array A list as array(duration, idle) averages.
+     * @return array A list as [duration, idle] averages.
      */
     public function stats_mean($last = 100)
     {
@@ -900,7 +900,7 @@ abstract class Daemon
         $n = ceil($count * 0.05);
 
         // Sort the $data by duration and remove the top and bottom $n rows
-        $duration = array();
+        $duration = [];
         for($i=0; $i<$count; $i++) {
             $duration[$i] = $data[$i]['duration'];
         }
@@ -909,7 +909,7 @@ abstract class Daemon
         $data = array_slice($data, $n, $count);
 
         // Now compute the corrected mean
-        $list = array(0, 0);
+        $list = [0, 0];
         if ($count) {
             for($i=0; $i<$count; $i++) {
                 $list[0] += $data[$i]['duration'];
@@ -1031,7 +1031,7 @@ abstract class Daemon
             if ($this->is_parent)
                 $this->parent_pid = $set_value;
 
-            $this->dispatch(array(self::ON_PIDCHANGE), array($set_value));
+            $this->dispatch([self::ON_PIDCHANGE], [$set_value]);
         }
 
         return $this->pid;
