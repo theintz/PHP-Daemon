@@ -213,7 +213,8 @@ abstract class Daemon
         }
         catch (\Exception $e)
         {
-            $o->fatal_error($e->getMessage(), 'FATAL');
+            $o->fatal_error(sprintf('Uncaught Exception in during startup: %s [file] %s [line] %s%s%s',
+                $e->getMessage(), $e->getFile(), $e->getLine(), PHP_EOL, $e->getTraceAsString()));
         }
 
         return $o;
@@ -516,7 +517,7 @@ abstract class Daemon
      * @param string $message
      * @param string $label
      */
-    public function fatal_error($message, $label = '')
+    public function fatal_error($message, $label = 'FATAL')
     {
         $this->error($message, $label);
 
