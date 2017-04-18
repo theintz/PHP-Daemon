@@ -18,10 +18,10 @@
  * @param $errstr
  * @param $errfile
  * @param $errline
- * @param $e Used when this is a user-generated error from an uncaught exception
+ * @param \Exception|\Error $e Used when this is a user-generated error from an uncaught exception
  * @return boolean
  */
-function daemon_error($errno, $errstr, $errfile, $errline, $errcontext = null, \Exception $e = null)
+function daemon_error($errno, $errstr, $errfile, $errline, $errcontext = null, $e = null)
 {
     static $runonce = true;
     static $is_writable = true;
@@ -105,10 +105,10 @@ function daemon_error($errno, $errstr, $errfile, $errline, $errcontext = null, \
 
 /**
  * Capture any uncaught exceptions and pass them as input to the error handler
- * @param Exception $e
+ * @param \Exception|\Error $e
  *
  */
-function daemon_exception(\Exception $e)
+function daemon_exception($e)
 {
     daemon_error(-1, $e->getMessage(), $e->getFile(), $e->getLine(), null, $e);
 }
