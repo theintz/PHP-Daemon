@@ -13,7 +13,7 @@ class Primes implements IWorker
 {
     /**
      * Reference to the mediator is automatically provided
-     * @var \Core_Worker_Mediator
+     * @var \Theintz\PhpDaemon\Worker\Mediator
      */
     public $mediator;
 
@@ -37,9 +37,11 @@ class Primes implements IWorker
 
     /**
      * This is called during object construction to validate any dependencies
-     * @return Array    Return array of error messages (Think stuff like "GD Library Extension Required" or "Cannot open /tmp for Writing") or an empty array
+     *
+     * @param array $errors
+     * @return array Return array of error messages (Think stuff like "GD Library Extension Required" or "Cannot open /tmp for Writing") or an empty array
      */
-    public function check_environment(Array $errors = array())
+    public function check_environment(array $errors = array())
     {
         // Satisfy Interface
     }

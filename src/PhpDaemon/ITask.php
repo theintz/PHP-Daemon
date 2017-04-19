@@ -36,7 +36,7 @@ interface ITask
     /**
      * Give your ITask object a group name so the ProcessManager can identify and group processes. Or return Null
      * to just use the current __class__ name.
-     * @return string
+     * @return string|null
      */
     public function group();
 }

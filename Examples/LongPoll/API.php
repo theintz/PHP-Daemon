@@ -13,7 +13,7 @@ class API implements IWorker
 {
     /**
      * Provided Automatically
-     * @var \Core_Worker_Mediator
+     * @var \Theintz\PhpDaemon\Worker\Mediator
      */
     public $mediator;
 
@@ -66,10 +66,12 @@ class API implements IWorker
 
     /**
      * This is called during object construction 2to validate any dependencies
-     * @return Array    Return array of error messages (Think stuff like "GD Library Extension Required" or
+     *
+     * @param array $errors
+     * @return array Return array of error messages (Think stuff like "GD Library Extension Required" or
      *                  "Cannot open /tmp for Writing") or an empty array
      */
-    public function check_environment(Array $errors = array())
+    public function check_environment(array $errors = array())
     {
         $errors = array();
         if (!function_exists('curl_init'))
@@ -84,9 +86,11 @@ class API implements IWorker
 
     /**
      * Poll the API for updated information -- Simulate an API call of varying duration.
-     * @return Array    Return associative array of results
+     *
+     * @param array $existing_results
+     * @return array Return associative array of results
      */
-    public function poll(Array $existing_results)
+    public function poll(array $existing_results)
     {
         static $calls = 0;
         $calls++;

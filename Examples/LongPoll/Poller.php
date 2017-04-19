@@ -9,6 +9,8 @@ use Theintz\PhpDaemon\Daemon;
  * daemon process where it would be manipulated/used/updated/etc.
  *
  * @author Shane Harter
+ * @property \Examples\LongPoll\API|\Theintz\PhpDaemon\IWorker $Api
+ * @property \Theintz\PhpDaemon\Plugin\Ini $ini
  */
 class Poller extends Daemon
 {
@@ -24,14 +26,14 @@ class Poller extends Daemon
      * Create a Lock File plugin to ensure we're not running duplicate processes, and load
      * the config file with all of our API connection details
      */
-	  protected function setup_plugins()
-	  {
+    protected function setup_plugins()
+    {
         $this->plugin('Lock\\File');
 
-		    $this->plugin('ini');
-		    $this->ini->filename = BASE_PATH . '/config.ini';
-		    $this->ini->required_sections = array('api');
-	  }
+        $this->plugin('ini');
+        $this->ini->filename = BASE_PATH . '/config.ini';
+        $this->ini->required_sections = ['api'];
+    }
 
     protected function setup_workers()
     {
@@ -56,7 +58,7 @@ class Poller extends Daemon
 	/**
 	 * The setup method is called only in your parent daemon class, after plugin_setup and worker_setup and before execute()
 	 * @return void
-	 * @throws Exception
+	 * @throws \Exception
 	 */
 	protected function setup()
 	{

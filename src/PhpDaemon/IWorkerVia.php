@@ -16,13 +16,18 @@ interface IWorkerVia
 
     /**
      * Retrieves a message from the queue
-     * @param $desired_type
-     * @return Call
+     *
+     * @param      $desired_type
+     * @param bool $blocking
+     * @return bool|Call
      */
     public function get($desired_type, $blocking = false);
 
     /**
      * Handle an Error
+     *
+     * @param     $error
+     * @param int $try
      * @return mixed
      */
     public function error($error, $try=1);

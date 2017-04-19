@@ -550,9 +550,9 @@ abstract class Daemon
      *
      * @link https://github.com/shaneharter/PHP-Daemon/wiki/Tasks
      *
-     * @param callable|ITask $callable     A valid PHP callback or closure.
-     * @param Mixed                             All additional params are passed to the $callable
-     * @return Process|boolean         Return a newly created Process object or false on failure
+     * @param callable|ITask $callable                 A valid PHP callback or closure.
+     * @param Mixed                                    All additional params are passed to the $callable
+     * @return \Theintz\PhpDaemon\Lib\Process|boolean  Return a newly created Process object or false on failure
      */
     public function task($task)
     {
