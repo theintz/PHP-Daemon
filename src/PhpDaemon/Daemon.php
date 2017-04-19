@@ -16,6 +16,7 @@ declare(ticks = 100);
  * @see https://github.com/shaneharter/PHP-Daemon/wiki/Daemon-Startup-Order-Explained
  * @singleton
  * @abstract
+ * @property \Theintz\PhpDaemon\Plugin\ProcessManager $ProcessManager
  */
 abstract class Daemon
 {
@@ -1001,9 +1002,9 @@ abstract class Daemon
             // Now that Locks are plugins in every other way, maybe it should be moved. OTOH, do we really need 4
             // levels of directory depth in a project with like 10 files...?
             if (substr(strtolower($alias), 0, 4) == 'lock')
-                $class = 'Theintz\\PhpDaemon\\' . ucfirst($alias);
+                $class = __NAMESPACE__ . '\\' . ucfirst($alias);
             else
-                $class = 'Theintz\\PhpDaemon\\Plugin\\' . ucfirst($alias);
+                $class = __NAMESPACE__ . '\\Plugin\\' . ucfirst($alias);
 
             if (class_exists($class, true)) {
                 $interfaces = class_implements($class, true);
