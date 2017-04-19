@@ -1,6 +1,6 @@
 <?php
 
-namespace Examples\PrimeNumbers;
+namespace Examples\PrimeNumbers\Workers;
 
 use Theintz\PhpDaemon\IWorker;
 
@@ -9,7 +9,7 @@ use Theintz\PhpDaemon\IWorker;
  * PHP Simple Daemon Worker
  * @author Shane Harter
  */
-class Workers_Primes implements IWorker
+class Primes implements IWorker
 {
     /**
      * Reference to the mediator is automatically provided

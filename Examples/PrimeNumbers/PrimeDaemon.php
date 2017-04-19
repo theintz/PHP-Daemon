@@ -2,6 +2,7 @@
 
 namespace Examples\PrimeNumbers;
 
+use Examples\PrimeNumbers\Workers\Primes;
 use Theintz\PhpDaemon\Daemon;
 use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\Plugin\Ini;
@@ -76,7 +77,7 @@ class PrimeDaemon extends Daemon
         $via = new SysV();
         $via->malloc(30 * 1024 * 1024);
 
-        $this->worker('PrimeNumbers', new Workers_Primes(), $via);
+        $this->worker('PrimeNumbers', new Primes(), $via);
         $this->PrimeNumbers->timeout(60);
         $this->PrimeNumbers->workers(4);
 
@@ -261,10 +262,10 @@ class PrimeDaemon extends Daemon
      * Intended to be used in an onReturn callback, which is called by the Worker and passed an object w/
      * all the call datails
      *
-     * @param stdClass $call
+     * @param \stdClass|\Theintz\PhpDaemon\Worker\Call $call
      * @return void
      */
-    public function job_return(\stdClass $call) {
+    public function job_return($call) {
         $sql = sprintf('UPDATE jobs set is_complete=1, completed_at=NOW() where pid=%s and worker="%s" and job=%s', $this->pid(), $call->method, $call->id);
         if (false == mysqli_query($this->db, $sql))
             $this->reconnect_db($sql);
@@ -275,10 +276,10 @@ class PrimeDaemon extends Daemon
      * Intended to be used in an onTimeout callback, which is called by the Worker and passed an object w/
      * all the call details
      *
-     * @param stdClass $call
+     * @param \stdClass|\Theintz\PhpDaemon\Worker\Call $call
      * @return void
      */
-    public function job_timeout(\stdClass $call) {
+    public function job_timeout($call) {
         $sql = sprintf('UPDATE jobs set is_timeout=1, retries=%s, completed_at=NOW() where pid=%s and worker="%s" and job=%s',
                         $call->retries, $this->pid(), $call->method, $call->id);
         if (false == mysqli_query($this->db, $sql))

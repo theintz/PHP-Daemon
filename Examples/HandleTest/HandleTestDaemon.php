@@ -2,7 +2,10 @@
 
 use Theintz\PhpDaemon\Daemon;
 
-require_once 'config.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/../../src/error_handlers.php';
+
 /**
  * Test case for resource leaks on the automatic restart of the Daemon.
  * Check for open files using 'lsof handledeamontest*.log'
@@ -38,7 +41,7 @@ class HandleTestDeamon extends Daemon {
     /**
      * Open a set of files and store them in a static to cause a handle leak.
      * @staticvar type $files
-     * @param type $max
+     * @param int $max
      */
     protected function openfiles($max = 5)
     {

@@ -26,7 +26,7 @@ class Poller extends Daemon
      */
 	  protected function setup_plugins()
 	  {
-        $this->plugin('File');
+        $this->plugin('Lock\\File');
 
 		    $this->plugin('ini');
 		    $this->ini->filename = BASE_PATH . '/config.ini';

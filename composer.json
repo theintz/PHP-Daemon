@@ -18,7 +18,8 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"Theintz\\PhpDaemon\\": "src/PhpDaemon/"
+			"Theintz\\PhpDaemon\\": "src/PhpDaemon/",
+			"Examples\\": "Examples/"
 		}
 	}
 }
