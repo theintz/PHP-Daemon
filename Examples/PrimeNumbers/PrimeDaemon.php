@@ -2,6 +2,7 @@
 
 namespace Examples\PrimeNumbers;
 
+use Examples\PrimeNumbers\Workers\Primes;
 use Theintz\PhpDaemon\Daemon;
 use Theintz\PhpDaemon\Exception;
 use Theintz\PhpDaemon\Plugin\Ini;
@@ -16,6 +17,8 @@ use Theintz\PhpDaemon\Worker\Via\SysV;
  * It runs jobs randomly and in response to signals and writes the jobs in a log to the MySQL table
  * described in the db.sql file.
  *
+ * @property \Theintz\PhpDaemon\Plugin\Ini $settings
+ * @property \Examples\PrimeNumbers\Workers\Primes $Primes
  */
 class PrimeDaemon extends Daemon
 {
@@ -76,11 +79,11 @@ class PrimeDaemon extends Daemon
         $via = new SysV();
         $via->malloc(30 * 1024 * 1024);
 
-        $this->worker('PrimeNumbers', new Workers_Primes(), $via);
-        $this->PrimeNumbers->timeout(60);
-        $this->PrimeNumbers->workers(4);
+        $this->worker('Primes', new Primes(), $via);
+        $this->Primes->timeout(60);
+        $this->Primes->workers(4);
 
-        $this->PrimeNumbers->onReturn(function($call, $log) use($that) {
+        $this->Primes->onReturn(function($call, $log) use($that) {
             $log("Job {$call->id} to {$call->method}() Complete");
             switch($call->method) {
                 case "sieve":
@@ -95,10 +98,10 @@ class PrimeDaemon extends Daemon
             $that->job_return($call);
         });
 
-        $this->PrimeNumbers->onTimeout(function($call, $log) use($that) {
+        $this->Primes->onTimeout(function($call, $log) use($that) {
             $log("Job {$call->id} Timed Out!");
             if ($call->retries < 3) {
-                $that->PrimeNumbers->retry($call);
+                $that->Primes->retry($call);
             } else {
                 $log("Retries Concluded. I Give Up.");
             }
@@ -111,7 +114,7 @@ class PrimeDaemon extends Daemon
         // - It will accept a single integer and return all of its factors.
         // - Load 2 workers in the pool
         // - Leave the memory allocation at the default: We will not be passing very much data back-and-forth.
-        // - In the Return handler, we are using the PrimeNumbers worker to determine the prime factors.
+        // - In the Return handler, we are using the Primes worker to determine the prime factors.
         $this->worker('GetFactors', function($integer)  {
             if (!is_integer($integer))
                 throw new Exception('Invalid Input! Expected Integer. Given: ' . gettype($integer));
@@ -131,7 +134,7 @@ class PrimeDaemon extends Daemon
 
             if (count($call->return)) {
                 $log("Finding Prime Factors");
-                $job = $that->PrimeNumbers->primes_among($call->return);
+                $job = $that->Primes->primes_among($call->return);
                 if ($job)
                     $sql = sprintf('INSERT INTO jobs (pid, job, worker) values(%s, %s, "%s")', $that->pid(), $job, 'primes_among');
                 else
@@ -197,6 +200,7 @@ class PrimeDaemon extends Daemon
                 break;
 
             case 7:
+                // no break
                 if ($this->auto_run) $this->run_getfactors = true;
 
             case 8:
@@ -228,7 +232,7 @@ class PrimeDaemon extends Daemon
 
             // Same Thing as we do for GetFactors
             $rand = mt_rand(100000, 200000);
-            $job = $this->PrimeNumbers->sieve($rand, $rand + $rand);
+            $job = $this->Primes->sieve($rand, $rand + $rand);
 
             if ($job)
                 $sql = sprintf('INSERT INTO jobs (pid, job, worker) values(%s, %s, "%s")', $this->pid(), $job, 'sieve');
@@ -248,7 +252,7 @@ class PrimeDaemon extends Daemon
             $this->run_inline_sieve = false;
 
             $rand = mt_rand(10000, 1000000);
-            $primes = $this->PrimeNumbers->inline()->sieve($rand, $rand + $rand);
+            $primes = $this->Primes->inline()->sieve($rand, $rand + $rand);
 
             // Remember, you're calling the method directly:
             // Timeouts are not enforced. The onReturn callback is not called.
@@ -261,10 +265,10 @@ class PrimeDaemon extends Daemon
      * Intended to be used in an onReturn callback, which is called by the Worker and passed an object w/
      * all the call datails
      *
-     * @param stdClass $call
+     * @param \stdClass|\Theintz\PhpDaemon\Worker\Call $call
      * @return void
      */
-    public function job_return(\stdClass $call) {
+    public function job_return($call) {
         $sql = sprintf('UPDATE jobs set is_complete=1, completed_at=NOW() where pid=%s and worker="%s" and job=%s', $this->pid(), $call->method, $call->id);
         if (false == mysqli_query($this->db, $sql))
             $this->reconnect_db($sql);
@@ -275,10 +279,10 @@ class PrimeDaemon extends Daemon
      * Intended to be used in an onTimeout callback, which is called by the Worker and passed an object w/
      * all the call details
      *
-     * @param stdClass $call
+     * @param \stdClass|\Theintz\PhpDaemon\Worker\Call $call
      * @return void
      */
-    public function job_timeout(\stdClass $call) {
+    public function job_timeout($call) {
         $sql = sprintf('UPDATE jobs set is_timeout=1, retries=%s, completed_at=NOW() where pid=%s and worker="%s" and job=%s',
                         $call->retries, $this->pid(), $call->method, $call->id);
         if (false == mysqli_query($this->db, $sql))

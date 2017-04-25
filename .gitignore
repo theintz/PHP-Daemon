@@ -31,3 +31,4 @@ example_logs
 pid
 logs
 Core/Worker/Mediator.old.php
+vendor/

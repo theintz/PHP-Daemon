@@ -1228,7 +1228,7 @@ abstract class Mediator implements ITask
      *
      * Part of the Daemon API - Use from your daemon to set a timeout for all worker calls.
      *
-     * @param $timeout
+     * @param float $timeout
      * @throws Exception
      */
     public function timeout($timeout) {

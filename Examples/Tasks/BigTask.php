@@ -9,18 +9,24 @@ use Theintz\PhpDaemon\ITask;
  * This won't actually do anything but you get the idea
  *
  * @author Shane Harter
- * @todo Create a plausible demo of a complex task that implements \Core_ITask
+ * @todo Create a plausible demo of a complex task that implements \Theintz\PhpDaemon\ITask
  */
 class BigTask implements ITask
 {
     /**
      * A handle to the Daemon object
-     * @var \Core_Daemon
+     * @var \Theintz\PhpDaemon\Daemon|ParallelTasks
      */
     private $daemon = null;
 
+    /**
+     * @var int
+     */
     private $sleep_duration;
 
+    /**
+     * @var string
+     */
     private $wakeup_message;
 
     public function __construct($sleep_duration, $wakeup_message = '') {

@@ -190,11 +190,11 @@ class SysV implements IWorkerVia, IPlugin {
     }
 
     /**
-    * Puts the message on the queue
-    * @param $message_type
-    * @param $message
-    * @return boolean
-    */
+     * Puts the message on the queue
+     *
+     * @param Call $call
+     * @return bool
+     */
     public function put(Call $call) {
         $that = $this;
         switch($call->status) {
@@ -229,10 +229,13 @@ class SysV implements IWorkerVia, IPlugin {
     }
 
     /**
-    * Retrieves a message from the queue
-    * @param $desired_type
-    * @return Call
-    */
+     * Retrieves a message from the queue
+     *
+     * @param int  $desired_type
+     * @param bool $blocking
+     * @return Call|bool
+     * @throws Exception
+     */
     public function get($desired_type, $blocking = false) {
         $blocking = $blocking ? 0 : MSG_IPC_NOWAIT;
         $message_type = $message = $message_error = null;

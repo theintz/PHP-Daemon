@@ -38,7 +38,7 @@ class Process
 
     /**
      * Stop the process, using whatever means necessary, and possibly return a textual description
-     * @return bool|string
+     * @return null|string
      */
     public function stop() {
 

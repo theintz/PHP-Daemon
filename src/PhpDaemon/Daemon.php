@@ -46,7 +46,7 @@ abstract class Daemon
      * An array of instructions that's displayed when the -i param is passed to the application.
      * Helps sysadmins and users of your daemons get installation correct. Guide them to set
      * correct permissions, supervisor/monit setup, crontab entries, init.d scripts, etc
-     * @var Array
+     * @var array
      */
     protected $install_instructions = array();
 
@@ -103,25 +103,25 @@ abstract class Daemon
 
     /**
      * Array of worker aliases
-     * @var Array
+     * @var \Theintz\PhpDaemon\IWorker[]
      */
     private $workers = array();
 
     /**
      * Array of plugin aliases
-     * @var Array
+     * @var \Theintz\PhpDaemon\IPlugin[]
      */
     private $plugins = array();
 
     /**
      * Map of callbacks that have been registered using on()
-     * @var Array
+     * @var array
      */
     private $callbacks = array();
 
     /**
      * Runtime statistics for a recent window of execution
-     * @var Array
+     * @var array
      */
     private $stats = array();
 
@@ -550,9 +550,9 @@ abstract class Daemon
      *
      * @link https://github.com/shaneharter/PHP-Daemon/wiki/Tasks
      *
-     * @param callable|ITask $callable     A valid PHP callback or closure.
-     * @param Mixed                             All additional params are passed to the $callable
-     * @return Process|boolean         Return a newly created Process object or false on failure
+     * @param callable|ITask $callable                 A valid PHP callback or closure.
+     * @param Mixed                                    All additional params are passed to the $callable
+     * @return \Theintz\PhpDaemon\Lib\Process|boolean  Return a newly created Process object or false on failure
      */
     public function task($task)
     {
@@ -1026,10 +1026,11 @@ abstract class Daemon
     /**
      * Create a persistent Worker process. This is an object loader similar to Daemon::plugin().
      *
-     * @param String $alias  The name of the worker -- Will be instantiated at $this->{$alias}
+     * @param String           $alias  The name of the worker -- Will be instantiated at $this->{$alias}
      * @param callable|IWorker $worker An object of type Worker OR a callable (function, callback, closure)
-     * @param IWorkerVia $via  A IWorkerVia object that defines the medium for IPC (In theory could be any message queue, redis, memcache, etc)
+     * @param IWorkerVia       $via    A IWorkerVia object that defines the medium for IPC (In theory could be any message queue, redis, memcache, etc)
      * @return ObjectMediator Returns a Worker class that can be used to interact with the Worker
+     * @throws Exception
      * @todo Use 'callable' type hinting if/when we move to a php 5.4 requirement.
      */
     protected function worker($alias, $worker, IWorkerVia $via = null)
@@ -1052,7 +1053,7 @@ abstract class Daemon
                 // be a collision between worker methods and public methods on the Mediator class
                 // Exclude any methods required by the IWorker interface from the check.
                 $intersection = array_intersect(get_class_methods($worker), get_class_methods($mediator));
-                $intersection = array_diff($intersection, get_class_methods('IWorker'));
+                $intersection = array_diff($intersection, get_class_methods(__NAMESPACE__ . '\\IWorker'));
                 if (!empty($intersection))
                     throw new Exception(sprintf('%s Failed. Your worker class "%s" contains restricted method names: %s.',
                         __METHOD__, get_class($worker), implode(', ', $intersection)));
