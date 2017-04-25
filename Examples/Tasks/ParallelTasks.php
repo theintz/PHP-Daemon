@@ -48,7 +48,7 @@ class ParallelTasks extends Daemon
         // Randomly Shut Down -- Demonstrate daemon shutdown behavior while background tasks are running
         if (mt_rand(1, 1000) == 1) {
             $this->log("Shutting Down..");
-            $this->shutdown(true);
+            $this->set('shutdown', true);
         }
 	}
 
